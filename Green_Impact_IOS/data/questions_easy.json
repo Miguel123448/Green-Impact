@@ -1,0 +1,114 @@
+[
+  {
+    "id": "easy-001",
+    "difficulty": "easy",
+    "prompt": "Qual é uma medida eficaz para garantir o acesso universal à água potável e saneamento?",
+    "options": ["Desperdício de água em atividades industriais", "Poluição de rios e lagos", "Investimento em infraestrutura de saneamento básico e proteção de fontes de água", "Uso excessivo de produtos químicos na agricultura"],
+    "answer_index": 2
+  },
+  {
+    "id": "easy-002",
+    "difficulty": "easy",
+    "prompt": "Qual das seguintes ações contribui diretamente para a erradicação da pobreza extrema?",
+    "options": ["Construção de arranha-céus", "Investimento em educação", "Aumento da produção de carros de luxo", "Expansão de parques temáticos"],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-003",
+    "difficulty": "easy",
+    "prompt": "Qual dos seguintes fatores é essencial para garantir uma educação inclusiva e equitativa de qualidade?",
+    "options": ["Discriminação de gênero", "Desigualdade de renda", "Acesso universal à educação", "Falta de recursos educacionais"],
+    "answer_index": 2
+  },
+  {
+    "id": "easy-004",
+    "difficulty": "easy",
+    "prompt": "Qual é o prazo estabelecido para o cumprimento dos Objetivos de Desenvolvimento Sustentável da Agenda 2030?",
+    "options": ["2025", "2030", "2035", "2040"],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-005",
+    "difficulty": "easy",
+    "prompt": "O que é o aquecimento global?",
+    "options": ["Aumento gradual da temperatura média da Terra", "Redução da temperatura da Terra", "Fenômeno natural sem influência humana", "Resfriamento das regiões polares"],
+    "answer_index": 0
+  },
+  {
+    "id": "easy-006",
+    "difficulty": "easy",
+    "prompt": "O que são energias limpas?",
+    "options": ["Energias que utilizam combustíveis fósseis", "Energias que reduzem o impacto ambiental", "Energias que aumentam a poluição", "Energias obsoletas"],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-007",
+    "difficulty": "easy",
+    "prompt": "O que é segurança alimentar?",
+    "options": ["Acesso garantido a alimentos suficientes e nutritivos para todos", "Armazenamento adequado de alimentos", "Prevenção de contaminação dos alimentos", "Controle de pragas em plantações"],
+    "answer_index": 0
+  },
+  {
+    "id": "easy-008",
+    "difficulty": "easy",
+    "prompt": "O que significa fome zero no contexto de segurança alimentar?",
+    "options": ["Não ter mais desperdício de alimentos", "Erradicar a fome e garantir acesso a alimentos nutritivos para todos", "Promover apenas alimentos processados", "Aumentar a exportação de alimentos"],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-009",
+    "difficulty": "easy",
+    "prompt": "Qual das seguintes fontes de energia é considerada uma energia limpa?",
+    "options": ["Energia eólica", "Energia do carvão", "Energia a diesel", "Energia nuclear"],
+    "answer_index": 0
+  },
+  {
+    "id": "easy-010",
+    "difficulty": "easy",
+    "prompt": "Qual dos seguintes meios de transporte é considerado mais sustentável?",
+    "options": ["Automóvel", "Avião", "Bicicleta", "Motocicleta"],
+    "answer_index": 2
+  },
+  {
+    "id": "easy-011",
+    "difficulty": "easy",
+    "prompt": "Qual é um benefício da mobilidade sustentável?",
+    "options": ["Aumento da poluição do ar", "Menor consumo de energia renovável", "Redução do congestionamento urbano", "Maior emissão de gases de efeito estufa"],
+    "answer_index": 2
+  },
+  {
+    "id": "easy-012",
+    "difficulty": "easy",
+    "prompt": "Qual é um fator que pode ameaçar a segurança alimentar?",
+    "options": ["Mudanças climáticas", "Agricultura familiar", "Consumo local", "Produção diversificada"],
+    "answer_index": 0
+  },
+  {
+    "id": "easy-013",
+    "difficulty": "easy",
+    "prompt": "O que é inclusão social?",
+    "options": ["Exclusão de grupos minoritários", "Garantir a todos acesso igual aos direitos e oportunidades", "Manter as desigualdades sociais", "Ignorar as diferenças entre as pessoas"],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-014",
+    "difficulty": "easy",
+    "prompt": "Qual é o objetivo principal da conservação da biodiversidade?",
+    "options": ["Aumentar a destruição de habitats naturais", "Reduzir a variedade de espécies na natureza", "Proteger e preservar a diversidade de vida na Terra", "Promover a extinção de animais e plantas"],
+    "answer_index": 2
+  },
+  {
+    "id": "easy-015",
+    "difficulty": "easy",
+    "prompt": "O que são áreas ambientalmente protegidas?",
+    "options": ["Locais onde a destruição ambiental é incentivada", "Locais onde a biodiversidade é ameaçada", "Locais onde a caça ilegal é permitida", "Locais onde a vida selvagem é protegida e conservada"],
+    "answer_index": 3
+  },
+  {
+    "id": "easy-016",
+    "difficulty": "easy",
+    "prompt": "O que é compostagem?",
+    "options": ["Processamento de alimentos industrializados", "Transformação de resíduos orgânicos em adubo natural", "Descarte de lixo em aterros sanitários", "Incineração de resíduos sólidos"],
+    "answer_index": 1
+  }
+]

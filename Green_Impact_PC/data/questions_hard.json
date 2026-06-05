@@ -1,0 +1,114 @@
+[
+  {
+    "id": "hard-001",
+    "difficulty": "hard",
+    "prompt": "Qual é a meta da ODS 9 em relação à sustentabilidade das infraestruturas?",
+    "options": ["Infraestruturas sustentáveis", "Reduzir emissões industriais", "Infraestruturas de qualidade", "Modernizar em países desenvolvidos"],
+    "answer_index": 2
+  },
+  {
+    "id": "hard-002",
+    "difficulty": "hard",
+    "prompt": "Qual é a meta da ODS 14 em relação aos resíduos marinhos?",
+    "options": ["Reduzir resíduos em 50%", "Prevenir e reduzir poluição", "Eliminar resíduos plásticos", "Tecnologias de limpeza oceânica"],
+    "answer_index": 1
+  },
+  {
+    "id": "hard-003",
+    "difficulty": "hard",
+    "prompt": "Qual é a meta específica da ODS 15 em relação às florestas?",
+    "options": ["Plantar árvores em áreas urbanas", "Promover a gestão sustentável das florestas", "Reduzir o desmatamento ilegal", "Promover a gestão sustentável das florestas"],
+    "answer_index": 3
+  },
+  {
+    "id": "hard-004",
+    "difficulty": "hard",
+    "prompt": "Quais são os três pilares que sustentam a Agenda 2030?",
+    "options": ["Economia, Sociedade e Prosperidade", "Desenvolvimento Social, Econômico e Ambiental", "Prosperidade, Pessoas e Planeta", "Igualdade, Sustentabilidade e Desenvolvimento"],
+    "answer_index": 1
+  },
+  {
+    "id": "hard-005",
+    "difficulty": "hard",
+    "prompt": "Qual é o objetivo da ODS 17 da Agenda 2030?",
+    "options": ["Parcerias para a implementação", "Reduzir a poluição", "Combater a desertificação", "Saúde reprodutiva"],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-006",
+    "difficulty": "hard",
+    "prompt": "O que significa o termo ODS na Agenda 2030?",
+    "options": ["Objetivos de Desenvolvimento Sistemático", "Objetivos de Desenvolvimento Sustentável", "Objetivos de Desenvolvimento Social", "Objetivos de Desenvolvimento Sincronizado"],
+    "answer_index": 1
+  },
+  {
+    "id": "hard-007",
+    "difficulty": "hard",
+    "prompt": "Qual componente é central na iniciativa Adaptação da Agricultura Africana para a resiliência climática?",
+    "options": ["Práticas agroecológicas e variedades resistentes à seca", "Sistemas de irrigação de precisão", "Fortalecimento de cadeias de valor agrícolas", "Criação de bancos de sementes locais"],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-008",
+    "difficulty": "hard",
+    "prompt": "Qual é o principal desafio para a transição global em direção a práticas de consumo sustentável nas economias emergentes?",
+    "options": ["Alto custo inicial para tecnologias verdes", "Escassez de matérias-primas recicláveis", "Resistência dos consumidores a mudar seus hábitos", "Falta de regulamentações ambientais rigorosas"],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-009",
+    "difficulty": "hard",
+    "prompt": "Quem foi o primeiro a formalizar o conceito de desenvolvimento sustentável, que mais tarde influenciaria a ODS 12?",
+    "options": ["John Elkington", "Gro Harlem Brundtland", "Amartya Sen", "Jeffrey Sachs"],
+    "answer_index": 1
+  },
+  {
+    "id": "hard-010",
+    "difficulty": "hard",
+    "prompt": "Qual é a maior barreira para a implementação de sistemas de energia solar em áreas rurais de países em desenvolvimento?",
+    "options": ["Falta de radiação solar suficiente", "Alto custo inicial de instalação", "Baixa demanda por energia", "Falta de mão de obra qualificada"],
+    "answer_index": 1
+  },
+  {
+    "id": "hard-011",
+    "difficulty": "hard",
+    "prompt": "Em qual país a proporção de mulheres em cargos de liderança empresarial é mais alta, segundo estudos recentes?",
+    "options": ["Noruega", "Japão", "Estados Unidos", "Índia"],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-012",
+    "difficulty": "hard",
+    "prompt": "Qual tecnologia emergente está sendo utilizada para purificar água em comunidades sem acesso a sistemas de tratamento tradicionais?",
+    "options": ["Osmose reversa", "Filtração por grafeno", "Destilação solar", "Nanotecnologia"],
+    "answer_index": 3
+  },
+  {
+    "id": "hard-013",
+    "difficulty": "hard",
+    "prompt": "Qual cidade é conhecida por seu sistema de transporte público mais eficiente e sustentável?",
+    "options": ["Los Angeles", "Copenhague", "Tóquio", "Nova York"],
+    "answer_index": 1
+  },
+  {
+    "id": "hard-014",
+    "difficulty": "hard",
+    "prompt": "Qual prática pesqueira é considerada mais sustentável para a preservação dos estoques de peixes?",
+    "options": ["Pesca de arrasto", "Pesca com redes de deriva", "Aquicultura em circuito fechado", "Pesca com explosivos"],
+    "answer_index": 2
+  },
+  {
+    "id": "hard-015",
+    "difficulty": "hard",
+    "prompt": "Qual país lidera o mundo na capacidade instalada de energia eólica offshore?",
+    "options": ["Alemanha", "China", "Reino Unido", "Dinamarca"],
+    "answer_index": 2
+  },
+  {
+    "id": "hard-016",
+    "difficulty": "hard",
+    "prompt": "Qual método agrícola é mais eficiente para reduzir as emissões de gases de efeito estufa?",
+    "options": ["Agricultura convencional", "Agricultura orgânica", "Agricultura de conservação", "Agricultura de precisão"],
+    "answer_index": 3
+  }
+]

@@ -1,0 +1,114 @@
+[
+  {
+    "id": "medium-001",
+    "difficulty": "medium",
+    "prompt": "Qual das seguintes estratégias é mais eficaz para melhorar a qualidade da educação?",
+    "options": ["Redução do acesso à educação para grupos vulneráveis", "Aumento do investimento em formação de professores", "Diminuição do tempo de permanência na escola", "Aumento da privatização do ensino"],
+    "answer_index": 1
+  },
+  {
+    "id": "medium-002",
+    "difficulty": "medium",
+    "prompt": "Qual é o principal desafio para garantir a educação de qualidade e inclusiva para todos até 2030?",
+    "options": ["Ampliação de infraestruturas escolares", "Capacitação contínua de professores", "Equidade no acesso a tecnologias educacionais", "Redução de taxas de evasão escolar"],
+    "answer_index": 2
+  },
+  {
+    "id": "medium-003",
+    "difficulty": "medium",
+    "prompt": "Qual dos seguintes indicadores é crucial para avaliar o progresso em relação à ODS 8, que visa promover o crescimento econômico inclusivo e sustentável?",
+    "options": ["Taxa de crescimento do PIB per capita", "Número de patentes registradas anualmente", "Taxa de crescimento da população urbana", "Índice de qualidade do ar"],
+    "answer_index": 0
+  },
+  {
+    "id": "medium-004",
+    "difficulty": "medium",
+    "prompt": "Qual é o objetivo da ODS 1?",
+    "options": ["Acabar com a fome", "Reduzir as desigualdades", "Promover a educação de qualidade", "Garantir a saúde e o bem-estar"],
+    "answer_index": 0
+  },
+  {
+    "id": "medium-005",
+    "difficulty": "medium",
+    "prompt": "O que a ODS 2 busca alcançar?",
+    "options": ["Fome zero e agricultura sustentável", "Educação de qualidade", "Igualdade de gênero", "Água limpa e saneamento"],
+    "answer_index": 0
+  },
+  {
+    "id": "medium-006",
+    "difficulty": "medium",
+    "prompt": "Qual é o foco da ODS 3?",
+    "options": ["Assegurar padrões de produção e consumo sustentáveis", "Promover o crescimento econômico sustentável", "Garantir uma vida saudável e promover o bem-estar para todos", "Proteger a vida marinha"],
+    "answer_index": 2
+  },
+  {
+    "id": "medium-007",
+    "difficulty": "medium",
+    "prompt": "O que a ODS 4 busca garantir?",
+    "options": ["Energia acessível e limpa", "Redução das desigualdades", "Educação de qualidade", "Trabalho decente e crescimento econômico"],
+    "answer_index": 2
+  },
+  {
+    "id": "medium-008",
+    "difficulty": "medium",
+    "prompt": "Qual é o objetivo principal da ODS 5?",
+    "options": ["Alcançar a igualdade de gênero", "Garantir água limpa e saneamento", "Promover a inovação e infraestrutura", "Reduzir a desigualdade dentro e entre países"],
+    "answer_index": 0
+  },
+  {
+    "id": "medium-009",
+    "difficulty": "medium",
+    "prompt": "Qual é o objetivo da ODS 6?",
+    "options": ["Garantir padrões de produção e consumo sustentáveis", "Assegurar o acesso à água potável e saneamento para todos", "Reduzir a desigualdade dentro e entre países", "Promover a igualdade de gênero e empoderar mulheres e meninas"],
+    "answer_index": 1
+  },
+  {
+    "id": "medium-010",
+    "difficulty": "medium",
+    "prompt": "O que a ODS 7 busca alcançar?",
+    "options": ["Energia limpa e acessível", "Indústria, inovação e infraestrutura", "Redução das desigualdades", "Cidades e comunidades sustentáveis"],
+    "answer_index": 0
+  },
+  {
+    "id": "medium-011",
+    "difficulty": "medium",
+    "prompt": "Qual é o foco da ODS 8?",
+    "options": ["Promover o crescimento econômico sustentado, inclusivo e sustentável", "Alcançar a igualdade de gênero", "Assegurar padrões de produção e consumo sustentáveis", "Promover o trabalho decente e o crescimento econômico"],
+    "answer_index": 3
+  },
+  {
+    "id": "medium-012",
+    "difficulty": "medium",
+    "prompt": "Qual é o principal objetivo da ODS 11?",
+    "options": ["Reduzir a população urbana", "Tornar as cidades e os assentamentos humanos inclusivos, seguros, resilientes e sustentáveis", "Aumentar a construção de arranha-céus", "Desenvolver mais áreas rurais"],
+    "answer_index": 1
+  },
+  {
+    "id": "medium-013",
+    "difficulty": "medium",
+    "prompt": "Qual é o principal objetivo da ODS 12?",
+    "options": ["Aumentar o consumo de produtos reciclados", "Garantir padrões de consumo e de produção sustentáveis", "Reduzir a produção industrial", "Promover a reutilização de produtos eletrônicos"],
+    "answer_index": 1
+  },
+  {
+    "id": "medium-014",
+    "difficulty": "medium",
+    "prompt": "Qual é o principal objetivo da ODS 13?",
+    "options": ["Tomar medidas urgentes para combater a mudança climática e seus impactos", "Aumentar a produção de energia solar", "Reduzir o uso de plásticos", "Promover o transporte público"],
+    "answer_index": 0
+  },
+  {
+    "id": "medium-015",
+    "difficulty": "medium",
+    "prompt": "O que são energias renováveis?",
+    "options": ["Energias que não geram impacto ambiental", "Energias geradas a partir de fontes não esgotáveis", "Energias que não emitem gases de efeito estufa", "Energias geradas a partir de combustíveis fósseis"],
+    "answer_index": 1
+  },
+  {
+    "id": "medium-016",
+    "difficulty": "medium",
+    "prompt": "O que é pegada ecológica?",
+    "options": ["Impacto de uma pessoa, comunidade ou empresa sobre o meio ambiente", "Medida de desperdício de recursos naturais", "Quantidade de carbono armazenada em uma área florestal", "Volume de poluição gerado por uma atividade industrial"],
+    "answer_index": 0
+  }
+]
