@@ -18,10 +18,13 @@ from .rules import (
     CREDITS_BY_DIFFICULTY,
     HELP_COST,
     INITIAL_CREDITS,
-    MAX_POSITION,
     QUESTION_TIME_LIMIT,
     RESEARCH_BONUS_SECONDS,
+    LUCK_EVENTS,
+    LUCK_POSITIONS,
     difficulty_for_position,
+    max_position_for_mode,
+    track_label,
 )
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -96,6 +99,7 @@ def make_ranking(room: Room) -> list[dict[str, Any]]:
             "name": p.name,
             "color": p.color,
             "position": p.position,
+            "display_position": track_label(p.position, room.game_mode),
             "credits": p.credits,
             "eliminated": p.eliminated,
             "stopped": p.stopped,
@@ -111,6 +115,7 @@ async def end_game(room: Room, reason: str) -> None:
     room.current_player_id = None
     room.turn_phase = "idle"
     room.pending_question_difficulty = None
+    room.last_roll = None
     room.ranking = make_ranking(room)
     await broadcast(room, f"Fim de jogo: {reason}")
 
@@ -136,17 +141,89 @@ async def next_turn(room: Room) -> None:
         await end_game(room, "nenhum jogador ativo")
         return
 
-    if player.position < MAX_POSITION:
-        player.position += 1
-
-    difficulty = difficulty_for_position(player.position)
     room.current_player_id = player.id
     room.current_question = None
     room.deadline_ts = None
     room.help_used_this_turn = False
+    room.pending_question_difficulty = None
+    room.special_event = None
+    room.last_roll = None
+
+    if room.game_mode == "classic":
+        if player.position < max_position_for_mode(room.game_mode):
+            player.position += 1
+        difficulty = difficulty_for_position(player.position, room.game_mode)
+        room.pending_question_difficulty = difficulty
+        room.turn_phase = "awaiting_question"
+        await broadcast(room, f"Vez de {player.name}. Casa {track_label(player.position, room.game_mode)}. Clique em iniciar pergunta quando estiver pronto.")
+    else:
+        room.turn_phase = "awaiting_roll"
+        await broadcast(room, f"Vez de {player.name}. Jogue o dado para avançar no tabuleiro.")
+
+
+async def after_landing(room: Room, player: Player) -> None:
+    max_pos = max_position_for_mode(room.game_mode)
+    if player.position >= max_pos:
+        room.pending_question_difficulty = difficulty_for_position(player.position, room.game_mode)
+        room.turn_phase = "awaiting_question"
+        await broadcast(room, f"{player.name} chegou ao {track_label(player.position, room.game_mode)}. Responda a pergunta final para vencer.")
+        return
+
+    if room.game_mode != "classic" and player.position in LUCK_POSITIONS:
+        message, delta = random.choice(LUCK_EVENTS)
+        old = player.credits
+        player.credits = max(0, player.credits + delta)
+        room.special_event = f"{message} ({old} → {player.credits} créditos)"
+        room.turn_phase = "luck_result"
+        await broadcast(room, f"{player.name} caiu em uma casa de sorte/revés. {room.special_event}")
+        return
+
+    difficulty = difficulty_for_position(player.position, room.game_mode)
     room.pending_question_difficulty = difficulty
     room.turn_phase = "awaiting_question"
-    await broadcast(room, f"Vez de {player.name}. Casa {player.position}. Clique em iniciar pergunta quando estiver pronto.")
+    await broadcast(room, f"{player.name} caiu na casa {track_label(player.position, room.game_mode)}. Clique em iniciar pergunta quando estiver pronto.")
+
+
+async def handle_roll(ws: Any, data: dict[str, Any] | None = None) -> None:
+    code = ROOM_BY_SOCKET.get(ws)
+    player_id = PLAYER_BY_SOCKET.get(ws)
+    if not code or not player_id:
+        return
+    room = ROOMS[code]
+    player = get_current_player_for_ws(room, player_id)
+    if not player:
+        await send(ws, {"type": "error", "message": "Não é sua vez."})
+        return
+    if room.turn_phase != "awaiting_roll":
+        await send(ws, {"type": "error", "message": "O dado só pode ser jogado no início do turno."})
+        return
+    # O cliente anima o dado, revela o número por 1 segundo e então
+    # envia o valor sorteado. Se o valor não vier, o servidor sorteia.
+    try:
+        roll = int((data or {}).get("roll", 0))
+    except Exception:
+        roll = 0
+    if roll < 1 or roll > 6:
+        roll = random.randint(1, 6)
+    max_pos = max_position_for_mode(room.game_mode)
+    player.position = min(max_pos, player.position + roll)
+    room.last_roll = roll
+    await broadcast(room, f"{player.name} tirou {roll} no dado e avançou para {track_label(player.position, room.game_mode)}.")
+    await after_landing(room, player)
+
+
+async def handle_continue(ws: Any) -> None:
+    code = ROOM_BY_SOCKET.get(ws)
+    player_id = PLAYER_BY_SOCKET.get(ws)
+    if not code or not player_id:
+        return
+    room = ROOMS[code]
+    player = get_current_player_for_ws(room, player_id)
+    if not player or room.turn_phase != "luck_result":
+        return
+    room.turn_phase = "idle"
+    room.special_event = None
+    await next_turn(room)
 
 
 async def start_question(room: Room, player: Player) -> None:
@@ -155,7 +232,7 @@ async def start_question(room: Room, player: Player) -> None:
     if room.turn_phase != "awaiting_question" or room.current_player_id != player.id:
         return
 
-    difficulty = room.pending_question_difficulty or difficulty_for_position(player.position)
+    difficulty = room.pending_question_difficulty or difficulty_for_position(player.position, room.game_mode)
     question = random.choice(QUESTIONS[difficulty])
     room.current_question = Question(
         id=question.id,
@@ -206,18 +283,57 @@ def get_current_player(room: Room, player_id: str) -> Player | None:
     return room.players.get(player_id)
 
 
+def get_current_player_for_ws(room: Room, player_id: str) -> Player | None:
+    # No multijogador local, um único dispositivo controla todos os jogadores.
+    if room.local_multiplayer and player_id == room.host_id and room.current_player_id:
+        return room.players.get(room.current_player_id)
+    return get_current_player(room, player_id)
+
+
 async def handle_create(ws: Any, data: dict[str, Any]) -> None:
     name = str(data.get("name") or "Jogador").strip()[:20] or "Jogador"
+    mode = str(data.get("game_mode") or "dice_board")
+    if mode not in {"classic", "dice_board"}:
+        mode = "dice_board"
     code = room_code()
     player_id = str(uuid.uuid4())
     player = Player(id=player_id, name=name, credits=INITIAL_CREDITS, is_host=True)
-    room = Room(code=code, host_id=player_id, players={player_id: player})
+    room = Room(code=code, host_id=player_id, players={player_id: player}, game_mode=mode)
     ROOMS[code] = room
     SOCKETS_BY_ROOM[code] = {ws}
     ROOM_BY_SOCKET[ws] = code
     PLAYER_BY_SOCKET[ws] = player_id
     await send(ws, {"type": "created", "room_code": code, "player_id": player_id})
     await broadcast(room, f"Sala {code} criada por {name}.")
+
+
+async def handle_create_local(ws: Any, data: dict[str, Any]) -> None:
+    count = int(data.get("count") or 2)
+    count = max(2, min(4, count))
+    base_name = str(data.get("name") or "Jogador").strip()[:16] or "Jogador"
+    code = room_code()
+    host_id = str(uuid.uuid4())
+    players: dict[str, Player] = {}
+    for i in range(count):
+        pid = host_id if i == 0 else str(uuid.uuid4())
+        players[pid] = Player(
+            id=pid,
+            name=f"{base_name} {i + 1}" if count > 1 else base_name,
+            color=COLORS[i],
+            credits=INITIAL_CREDITS,
+            is_host=(i == 0),
+        )
+    room = Room(code=code, host_id=host_id, players=players, game_mode="dice_board", local_multiplayer=True)
+    ROOMS[code] = room
+    SOCKETS_BY_ROOM[code] = {ws}
+    ROOM_BY_SOCKET[ws] = code
+    PLAYER_BY_SOCKET[ws] = host_id
+    await send(ws, {"type": "created", "room_code": code, "player_id": host_id})
+    await broadcast(room, f"Multijogador local criado com {count} jogadores.")
+    room.status = "playing"
+    room.current_turn_index = -1
+    await broadcast(room, "Partida local iniciada.")
+    await next_turn(room)
 
 
 async def handle_join(ws: Any, data: dict[str, Any]) -> None:
@@ -249,6 +365,8 @@ async def handle_choose_color(ws: Any, data: dict[str, Any]) -> None:
     if not code or not player_id:
         return
     room = ROOMS[code]
+    if room.local_multiplayer:
+        return
     if room.status != "waiting":
         await send(ws, {"type": "error", "message": "Não é possível trocar cor depois que o jogo começa."})
         return
@@ -302,7 +420,7 @@ async def handle_answer(ws: Any, data: dict[str, Any]) -> None:
     room = ROOMS[code]
     if await expire_if_needed(room):
         return
-    player = get_current_player(room, player_id)
+    player = get_current_player_for_ws(room, player_id)
     if not player or not room.current_question:
         await send(ws, {"type": "error", "message": "Não é sua vez."})
         return
@@ -316,7 +434,7 @@ async def handle_answer(ws: Any, data: dict[str, Any]) -> None:
         room.turn_phase = "idle"
         room.pending_question_difficulty = None
         await broadcast(room, event, reveal_answer=True)
-        if player.position >= MAX_POSITION:
+        if player.position >= max_position_for_mode(room.game_mode):
             await end_game(room, f"{player.name} completou o percurso")
             return
         await next_turn(room)
@@ -332,7 +450,7 @@ async def handle_stop(ws: Any) -> None:
     room = ROOMS[code]
     if await expire_if_needed(room):
         return
-    player = get_current_player(room, player_id)
+    player = get_current_player_for_ws(room, player_id)
     if not player or not room.current_question:
         await send(ws, {"type": "error", "message": "Inicie a pergunta antes de decidir parar."})
         return
@@ -352,7 +470,7 @@ async def handle_timeout(ws: Any) -> None:
     if not code or not player_id:
         return
     room = ROOMS[code]
-    if room.current_player_id == player_id:
+    if get_current_player_for_ws(room, player_id):
         await expire_if_needed(room)
 
 
@@ -362,7 +480,7 @@ async def handle_begin_question(ws: Any) -> None:
     if not code or not player_id:
         return
     room = ROOMS[code]
-    player = get_current_player(room, player_id)
+    player = get_current_player_for_ws(room, player_id)
     if not player:
         await send(ws, {"type": "error", "message": "Não é sua vez."})
         return
@@ -380,7 +498,7 @@ async def handle_help(ws: Any, data: dict[str, Any]) -> None:
     room = ROOMS[code]
     if await expire_if_needed(room):
         return
-    player = get_current_player(room, player_id)
+    player = get_current_player_for_ws(room, player_id)
     if not player or not room.current_question:
         await send(ws, {"type": "error", "message": "Não é sua vez."})
         return
@@ -406,7 +524,6 @@ async def handle_help(ws: Any, data: dict[str, Any]) -> None:
             room.deadline_ts += RESEARCH_BONUS_SECONDS
         await broadcast(room, f"{player.name} comprou pesquisa na internet (+{RESEARCH_BONUS_SECONDS}s).")
     elif help_type == "expert":
-        # Dica genérica para preservar o papel do mediador/professor.
         tip = "Dica do especialista: pense no conceito central da ODS relacionada à pergunta e elimine opções que aumentam desigualdade, poluição ou desperdício."
         await send(ws, {"type": "private_tip", "message": tip})
         await broadcast(room, f"{player.name} comprou ajuda do especialista.")
@@ -434,12 +551,18 @@ async def handler(ws: Any, path: str | None = None) -> None:
             msg_type = data.get("type")
             if msg_type == "create":
                 await handle_create(ws, data)
+            elif msg_type == "create_local":
+                await handle_create_local(ws, data)
             elif msg_type == "join":
                 await handle_join(ws, data)
             elif msg_type == "choose_color":
                 await handle_choose_color(ws, data)
             elif msg_type == "start":
                 await handle_start(ws)
+            elif msg_type == "roll":
+                await handle_roll(ws, data)
+            elif msg_type == "continue":
+                await handle_continue(ws)
             elif msg_type == "begin_question":
                 await handle_begin_question(ws)
             elif msg_type == "answer":

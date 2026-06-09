@@ -44,3 +44,14 @@ A opção **Abrir servidor local e criar sala** continua usando `127.0.0.1` inte
 ## Ícone do aplicativo
 
 Esta versão já inclui `assets/app_icon.png` e `assets/app_icon.ico`. O `build_windows.bat` usa esse ícone ao gerar os executáveis com PyInstaller.
+
+## Atualização: multijogador local e novo tabuleiro
+
+Esta versão inclui:
+
+- Modo **Multijogador local**, para 2 a 4 jogadores no mesmo dispositivo.
+- Modo **Multijogador online** usando o novo tabuleiro (`assets/board_new.jpg`).
+- Implementação de **dado** no multijogador: o jogador lança o dado e anda a quantidade sorteada.
+- Casas 1 a 5: perguntas fáceis; casas 6 a 9: perguntas médias; casas 10 a 12: perguntas difíceis.
+- Casas com símbolo de planta: eventos de **sorte/revés**, com bônus ou perda de créditos de carbono.
+- O modo **Um jogador** permanece com o tabuleiro original e a regra anterior.

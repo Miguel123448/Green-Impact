@@ -44,3 +44,7 @@ O modo **Um jogador** abre um servidor local no próprio aparelho. Para multipla
 ## Ícone do aplicativo
 
 Esta versão já inclui `assets/app_icon.png`, configurado em `buildozer.spec` por `icon.filename = assets/app_icon.png`.
+
+## Atualização: multijogador local e novo tabuleiro
+
+Incluído modo **Multijogador local** para 2 a 4 jogadores no mesmo aparelho, além do multijogador online com o novo tabuleiro (`assets/board_new.jpg`). O multijogador agora usa dado, casas de pergunta por dificuldade e casas de sorte/revés com símbolo de planta. O modo **Um jogador** mantém o tabuleiro original.

@@ -73,14 +73,19 @@ class Room:
     current_question: Question | None = None
     current_player_id: str | None = None
     deadline_ts: float | None = None
-    # turn_phase controla a pausa entre rodadas:
-    # - awaiting_question: jogador da vez já avançou a casa, mas ainda não abriu a pergunta
-    # - question: pergunta aberta e cronômetro rodando
+    # turn_phase:
+    # idle, awaiting_roll, awaiting_question, question, luck_result
     turn_phase: str = "idle"
     pending_question_difficulty: str | None = None
     help_used_this_turn: bool = False
     event_log: list[str] = field(default_factory=list)
     ranking: list[dict[str, Any]] = field(default_factory=list)
+    # classic = tabuleiro antigo / avanço automático de 1 casa.
+    # dice_board = tabuleiro novo / dado / casas de sorte-revés.
+    game_mode: str = "dice_board"
+    local_multiplayer: bool = False
+    last_roll: int | None = None
+    special_event: str | None = None
 
     def ordered_players(self) -> list[Player]:
         return list(self.players.values())
@@ -102,4 +107,8 @@ class Room:
             "help_used_this_turn": self.help_used_this_turn,
             "event_log": self.event_log[-8:],
             "ranking": self.ranking,
+            "game_mode": self.game_mode,
+            "local_multiplayer": self.local_multiplayer,
+            "last_roll": self.last_roll,
+            "special_event": self.special_event,
         }

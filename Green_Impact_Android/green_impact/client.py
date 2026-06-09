@@ -15,6 +15,7 @@ import pygame
 import websockets
 
 from .common import COLOR_LABELS, PLAYER_RGB
+from .rules import track_label
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 ASSET_DIR = BASE_DIR / "assets"
@@ -552,7 +553,7 @@ class GreenImpactClient:
             elif not p.get("connected", True):
                 status = " offline"
             pygame.draw.circle(self.screen, rgb, (x + 12, y + 12), 10)
-            line = f"{prefix}{p.get('name')} | casa {p.get('position')} | {p.get('credits')} créditos{status}"
+            line = f"{prefix}{p.get('name')} | casa {track_label(int(p.get('position', 0)), self.state.get('game_mode', 'dice_board') if self.state else 'dice_board')} | {p.get('credits')} créditos{status}"
             self.draw_text(line, (x + 30, y), self.font_small, TEXT)
             y += 28
         return y + 8
@@ -592,7 +593,7 @@ class GreenImpactClient:
             elif not p.get("connected", True):
                 status = " off"
             pygame.draw.circle(self.screen, rgb, (px + 10, py + 11), 9)
-            line = f"{prefix}{p.get('name')} | casa {p.get('position')} | {p.get('credits')} cr.{status}"
+            line = f"{prefix}{p.get('name')} | casa {track_label(int(p.get('position', 0)), self.state.get('game_mode', 'dice_board') if self.state else 'dice_board')} | {p.get('credits')} cr.{status}"
             self.draw_text(line[:42], (px + 26, py), self.font_small, TEXT)
 
         rows = max(1, math.ceil(len(players) / 2))
@@ -624,7 +625,7 @@ class GreenImpactClient:
             by = y + (i // 2) * 62
             taken_by_me = bool(me and me.get("color") == color)
             enabled = color not in chosen or taken_by_me
-            label = COLOR_NAMES[color] + (" ✓" if taken_by_me else "")
+            label = COLOR_NAMES[color] + (" [X]" if taken_by_me else "")
             self.add_button(
                 pygame.Rect(bx, by, 160, 44),
                 label,
@@ -783,7 +784,7 @@ class GreenImpactClient:
                 status = " - eliminado"
             elif row.get("stopped"):
                 status = " - parou"
-            text = f"{idx}º {row.get('name')} | casa {row.get('position')} | {row.get('credits')} créditos{status}"
+            text = f"{idx}º {row.get('name')} | casa {row.get('display_position', row.get('position'))} | {row.get('credits')} créditos{status}"
             self.draw_text(text, (x + 35, y), self.font, TEXT)
             y += 38
         self.draw_event_log(500, 20, 755, 682)

@@ -32,3 +32,7 @@ O script `build_macos.sh` já usa `assets/app_icon.icns` como ícone do `.app`.
 ## Base para iOS
 
 Use este mesmo `main.py`, a pasta `assets/` e a pasta `data/` ao criar o projeto com `kivy-ios`. Depois, no Xcode, configure o ícone usando `assets/app_icon.png` ou gere os tamanhos exigidos pelo asset catalog do Xcode.
+
+## Atualização: multijogador local e novo tabuleiro
+
+Incluído modo **Multijogador local** para 2 a 4 jogadores no mesmo dispositivo, além do multijogador online com o novo tabuleiro (`assets/board_new.jpg`). O multijogador agora usa dado, casas de pergunta por dificuldade e casas de sorte/revés com símbolo de planta. O modo **Um jogador** mantém o tabuleiro original.
