@@ -202,6 +202,7 @@ class GreenImpactClient:
         self.join_room = room.upper() if room else None
         self.in_menu = start_in_menu
         self.ui_mode = "home" if start_in_menu else "game"  # home, connection, how_to_play, game
+        self.rules_return_context: tuple[bool, str] | None = None
         self.ws: Any = None
         self.state: dict[str, Any] | None = None
         self.you: str | None = None
@@ -221,6 +222,8 @@ class GreenImpactClient:
         self.create_game_mode = "dice_board"
         self.create_local_count: int | None = None
         self.local_count = 2
+        self.create_local_names: list[str] = []
+        self.local_name_inputs: list[InputBox] = []
         self.dice_animating = False
         self.dice_revealing = False
         self.dice_value = 1
@@ -261,6 +264,7 @@ class GreenImpactClient:
             "room": InputBox(pygame.Rect(565, 454, 190, 42), "Código da sala", (room or "").upper()),
         }
         self.home_name_input = InputBox(pygame.Rect(610, 382, 300, 42), "Seu nome", name or "Jogador")
+        self.ensure_local_name_inputs()
 
     def load_image(self, path: Path, size: tuple[int, int], keep_alpha: bool = False) -> pygame.Surface | None:
         try:
@@ -310,7 +314,7 @@ class GreenImpactClient:
             if self.join_room:
                 await self.send({"type": "join", "room": self.join_room, "name": self.name})
             elif self.create_local_count:
-                await self.send({"type": "create_local", "name": self.name, "count": self.create_local_count})
+                await self.send({"type": "create_local", "name": self.name, "count": self.create_local_count, "names": self.create_local_names})
             else:
                 await self.send({"type": "create", "name": self.name, "game_mode": self.create_game_mode})
         except Exception as exc:
@@ -378,6 +382,28 @@ class GreenImpactClient:
         self.in_menu = True
         self.ui_mode = "home"
         self.connecting = False
+
+    async def open_rules_from_game(self) -> None:
+        """Abre as regras sem sair da sala atual.
+
+        Antes, este botão chamava back_to_menu(), então qualquer clique em
+        "Como jogar/Regras" derrubava a conexão e voltava para o menu.
+        Agora guardamos a tela anterior para que o botão Voltar retorne ao
+        estado exato de onde o jogador abriu as regras: lobby, partida, fim
+        de jogo, conexão ou menu principal.
+        """
+        if self.ui_mode != "how_to_play":
+            self.rules_return_context = (self.in_menu, self.ui_mode)
+        self.in_menu = True
+        self.ui_mode = "how_to_play"
+
+    def close_rules(self) -> None:
+        if self.rules_return_context is not None:
+            self.in_menu, self.ui_mode = self.rules_return_context
+        else:
+            self.in_menu = True
+            self.ui_mode = "home"
+        self.rules_return_context = None
 
     async def listen(self) -> None:
         try:
@@ -528,6 +554,21 @@ class GreenImpactClient:
         self.menu_inputs["name"].value = self.home_name_input.value.strip() or "Jogador"
         self.connection_error = None
 
+    def ensure_local_name_inputs(self) -> None:
+        """Garante um campo de nome independente para cada jogador local."""
+        defaults = ["Jogador 1", "Jogador 2", "Jogador 3", "Jogador 4"]
+        while len(self.local_name_inputs) < 4:
+            idx = len(self.local_name_inputs)
+            self.local_name_inputs.append(InputBox(pygame.Rect(0, 0, 260, 40), f"Nome do jogador {idx + 1}", defaults[idx]))
+
+    def local_player_names(self) -> list[str]:
+        self.ensure_local_name_inputs()
+        names = []
+        for i in range(self.local_count):
+            value = self.local_name_inputs[i].value.strip() or f"Jogador {i + 1}"
+            names.append(value[:20])
+        return names
+
     async def start_single_player(self) -> None:
         self.menu_inputs["name"].value = self.home_name_input.value.strip() or "Jogador"
         self.menu_inputs["host"].value = DEFAULT_SERVER_HOST
@@ -542,14 +583,17 @@ class GreenImpactClient:
         self.connection_error = None
 
     async def start_local_multiplayer(self) -> None:
-        self.menu_inputs["name"].value = self.home_name_input.value.strip() or "Jogador"
+        names = self.local_player_names()
+        self.menu_inputs["name"].value = names[0] if names else "Jogador"
         self.menu_inputs["host"].value = LOCALHOST
         self.menu_inputs["port"].value = DEFAULT_SERVER_PORT
         self.menu_inputs["room"].value = ""
         self.create_game_mode = "dice_board"
         self.create_local_count = self.local_count
+        self.create_local_names = names
         await self.start_local_and_create()
         self.create_local_count = None
+        self.create_local_names = []
 
     def draw_home_menu(self) -> None:
         self.screen.fill(BG)
@@ -602,7 +646,7 @@ class GreenImpactClient:
         self.add_button(
             pygame.Rect(610, 600, 300, 44),
             "Como jogar",
-            lambda: setattr(self, "ui_mode", "how_to_play"),
+            lambda: asyncio.create_task(self.open_rules_from_game()),
             enabled=True,
         )
 
@@ -626,50 +670,63 @@ class GreenImpactClient:
         elif self.board_img:
             self.screen.blit(self.board_img, self.board_rect)
 
+        self.ensure_local_name_inputs()
         panel = pygame.Rect(535, 20, 720, 682)
         pygame.draw.rect(self.screen, PANEL, panel, border_radius=18)
         pygame.draw.rect(self.screen, DARK, panel, width=2, border_radius=18)
-        x = panel.x + 48
-        y = panel.y + 48
+        x = panel.x + 42
+        y = panel.y + 34
 
         self.draw_text("Multijogador local", (x, y), self.font_title, DARK)
-        y += 70
-        y = self.draw_wrapped(
-            "Escolha quantos jogadores vão jogar no mesmo dispositivo. O jogo usará o novo tabuleiro, dado animado e casas de sorte/revés.",
-            x, y, 70, self.font_small, TEXT, 24,
-        )
-        y += 28
-
-        # O campo de nome usava a posição fixa do menu principal e ficava
-        # por cima dos botões. Aqui ele recebe uma posição exclusiva da tela.
-        self.home_name_input.rect = pygame.Rect(x, y + 26, 300, 42)
-        self.home_name_input.draw(self.screen, self.font, self.font_small)
-        y += 96
-
-        self.draw_text(f"Quantidade de jogadores: {self.local_count}", (x, y), self.font_big, DARK)
         y += 58
+        y = self.draw_wrapped(
+            "Escolha a quantidade de jogadores e informe o nome de cada um. Todos jogam no mesmo dispositivo.",
+            x, y, 70, self.font_small, TEXT, 23,
+        )
+        y += 18
+
+        self.draw_text(f"Quantidade: {self.local_count} jogadores", (x, y), self.font_big, DARK)
+        y += 48
         for i, count in enumerate([2, 3, 4]):
             self.add_button(
-                pygame.Rect(x + i * 150, y, 132, 48),
-                f"{count} jogadores" + (" [X]" if self.local_count == count else ""),
+                pygame.Rect(x + i * 150, y, 132, 44),
+                f"{count}" + (" [X]" if self.local_count == count else ""),
                 lambda c=count: setattr(self, "local_count", c),
                 enabled=True,
             )
-        y += 90
+        y += 62
+
+        self.draw_text("Nomes dos jogadores", (x, y), self.font_big, DARK)
+        y += 42
+        for i in range(self.local_count):
+            bx = x + (i % 2) * 320
+            by = y + (i // 2) * 74
+            box = self.local_name_inputs[i]
+            box.rect = pygame.Rect(bx, by + 24, 285, 40)
+            box.label = f"Jogador {i + 1}"
+            box.draw(self.screen, self.font, self.font_small)
+        y += 160
+
         self.add_button(
-            pygame.Rect(x, y, 260, 50),
+            pygame.Rect(x, panel.bottom - 82, 260, 50),
             "Iniciar local",
             lambda: asyncio.create_task(self.start_local_multiplayer()),
             enabled=not self.connecting,
         )
         self.add_button(
-            pygame.Rect(x + 280, y, 160, 50),
+            pygame.Rect(x + 280, panel.bottom - 82, 170, 50),
             "Voltar",
             lambda: setattr(self, "ui_mode", "home"),
             enabled=True,
         )
+        self.add_button(
+            pygame.Rect(x + 470, panel.bottom - 82, 170, 50),
+            "Como jogar",
+            lambda: asyncio.create_task(self.open_rules_from_game()),
+            enabled=True,
+        )
         if self.connection_error:
-            self.draw_wrapped("Erro: " + self.connection_error, x, y + 70, 72, self.font_small, RED, 22)
+            self.draw_wrapped("Erro: " + self.connection_error, x, panel.bottom - 120, 72, self.font_small, RED, 22)
 
     def draw_how_to_play(self) -> None:
         self.screen.fill(BG)
@@ -700,11 +757,10 @@ class GreenImpactClient:
             self.draw_text(title + ":", (x, y), self.font_small, DARK)
             y = self.draw_wrapped(body, x + 118, y, 66, self.font_small, TEXT, 20)
             y += 6
-        self.add_button(pygame.Rect(x, panel.bottom - 62, 180, 44), "Voltar", lambda: setattr(self, "ui_mode", "home"), enabled=True)
+        self.add_button(pygame.Rect(x, panel.bottom - 62, 180, 44), "Voltar", self.close_rules, enabled=True)
 
     def draw_menu(self) -> None:
         self.screen.fill(BG)
-        # Painel visual esquerdo.
         if self.board_img:
             self.screen.blit(self.board_img, self.board_rect)
         else:
@@ -713,77 +769,50 @@ class GreenImpactClient:
         panel = pygame.Rect(535, 20, 720, 682)
         pygame.draw.rect(self.screen, PANEL, panel, border_radius=18)
         pygame.draw.rect(self.screen, DARK, panel, width=2, border_radius=18)
-        x, y = panel.x + 48, panel.y + 28
+        x = panel.x + 48
+        y = panel.y + 34
 
         if self.logo_img:
-            self.screen.blit(self.logo_img, (x + 170, panel.y + 14))
+            self.screen.blit(self.logo_img, (x + 170, panel.y + 12))
+            y = panel.y + 170
         else:
-            self.draw_text("GREEN IMPACT", (x + 180, panel.y + 42), self.font_title, DARK)
+            self.draw_text("GREEN IMPACT", (x + 160, panel.y + 42), self.font_title, DARK)
+            y = panel.y + 170
 
-        # Posições fixas evitam que o HUD fique sobreposto em resoluções 1280x720.
-        title_y = panel.y + 178
-        self.draw_text("Multijogador", (x, title_y), self.font_big, DARK)
+        self.draw_text("Multijogador online", (x, y), self.font_big, DARK)
+        y += 46
         self.draw_wrapped(
-            "Escolha como quer jogar: conectar manualmente por IP ou abrir um servidor local neste computador.",
-            x,
-            title_y + 44,
-            72,
-            self.font_small,
-            TEXT,
-            22,
+            "Para começar uma partida, clique em Criar sala. Para jogar com alguém que já criou uma sala, digite o código e clique em Entrar.",
+            x, y, 72, self.font_small, TEXT, 22,
         )
+        y += 70
 
-        for box in self.menu_inputs.values():
-            box.draw(self.screen, self.font, self.font_small)
+        name_box = self.menu_inputs["name"]
+        name_box.rect = pygame.Rect(x, y + 24, 300, 42)
+        name_box.label = "Seu nome"
+        name_box.draw(self.screen, self.font, self.font_small)
+        y += 86
 
-        # Botões principais.
-        self.add_button(
-            pygame.Rect(565, 512, 220, 44),
-            "Criar sala no IP",
-            lambda: asyncio.create_task(self.connect_from_menu(create_room=True)),
-            enabled=not self.connecting,
-        )
-        self.add_button(
-            pygame.Rect(805, 512, 220, 44),
-            "Entrar na sala",
-            lambda: asyncio.create_task(self.connect_from_menu(create_room=False)),
-            enabled=not self.connecting,
-        )
-        self.add_button(
-            pygame.Rect(565, 570, 360, 46),
-            "Abrir servidor local e criar sala",
-            lambda: asyncio.create_task(self.start_local_and_create()),
-            enabled=not self.connecting,
-        )
-        self.add_button(
-            pygame.Rect(945, 570, 80, 46),
-            "Voltar",
-            lambda: setattr(self, "ui_mode", "home"),
-            enabled=True,
-        )
+        room_box = self.menu_inputs["room"]
+        room_box.rect = pygame.Rect(x, y + 24, 210, 42)
+        room_box.label = "Código da sala"
+        room_box.draw(self.screen, self.font, self.font_small)
+        self.draw_wrapped("O código aparece para quem criou a sala. Ex.: MDNI.", x + 230, y + 26, 44, self.font_small, TEXT, 21)
+        y += 92
 
-        help_y = 632
+        self.add_button(pygame.Rect(x, y, 230, 48), "Criar nova sala", lambda: asyncio.create_task(self.connect_from_menu(create_room=True)), enabled=not self.connecting)
+        self.add_button(pygame.Rect(x + 250, y, 230, 48), "Entrar com código", lambda: asyncio.create_task(self.connect_from_menu(create_room=False)), enabled=not self.connecting)
+        y += 62
+        self.add_button(pygame.Rect(x, y, 260, 46), "Abrir servidor local", lambda: asyncio.create_task(self.start_local_and_create()), enabled=not self.connecting)
+        self.add_button(pygame.Rect(x + 280, y, 140, 46), "Voltar", lambda: setattr(self, "ui_mode", "home"), enabled=True)
+        self.add_button(pygame.Rect(x + 440, y, 160, 46), "Como jogar", lambda: asyncio.create_task(self.open_rules_from_game()), enabled=True)
+
         self.draw_wrapped(
-            f"Para jogar no mesmo PC: use servidor local. Para outros computadores da mesma rede, eles devem colocar o IP do seu computador. Possível IP local: {self.lan_ip}",
-            545,
-            help_y,
-            82,
-            self.font_small,
-            TEXT,
-            22,
+            f"Configuração avançada: o jogo usa o servidor padrão {self.menu_inputs['host'].value}:{self.menu_inputs['port'].value}. Se for usar outro servidor, altere no código ou na versão de testes.",
+            x, panel.bottom - 76, 70, self.font_small, TEXT, 20,
         )
-        if self.local_server_thread and self.local_server_thread.is_alive():
-            self.draw_wrapped(
-                f"Servidor local ativo na porta {self.local_server_port}. Outros jogadores usam IP {self.lan_ip} e porta {self.local_server_port}.",
-                545,
-                help_y + 44,
-                82,
-                self.font_small,
-                DARK,
-                22,
-            )
         if self.connection_error:
-            self.draw_wrapped("Erro: " + self.connection_error, 545, 670, 82, self.font_small, RED, 22)
+            self.draw_wrapped("Erro: " + self.connection_error, x, panel.bottom - 120, 72, self.font_small, RED, 22)
 
     def draw_connecting(self) -> None:
         self.screen.fill(BG)
@@ -921,9 +950,9 @@ class GreenImpactClient:
             self.draw_text("GREEN IMPACT", (x, y), self.font_title, DARK)
             y += 65
 
-        self.draw_text(f"Sala: {self.room_code or 'conectando...'}", (x, y), self.font_big, DARK)
+        self.draw_text(f"Código da sala: {self.room_code or 'conectando...'}", (x, y), self.font_big, DARK)
         y += 48
-        self.draw_wrapped("Escolha uma cor. Quando todos escolherem, o criador da sala pode iniciar a partida.", x, y, 70, self.font_small)
+        self.draw_wrapped("Compartilhe este código com os outros jogadores. Escolha uma cor; quando todos escolherem, o criador inicia a partida.", x, y, 70, self.font_small)
         y += 56
 
         players = self.state.get("players", []) if self.state else []
@@ -946,8 +975,10 @@ class GreenImpactClient:
 
         is_host = bool(me and me.get("is_host"))
         can_start = bool(is_host and me and me.get("color") and all(p.get("color") for p in players))
-        self.add_button(pygame.Rect(x, right.bottom - 80, 220, 52), "Iniciar partida", lambda: self.fire_and_forget({"type": "start"}), enabled=can_start)
-        self.draw_wrapped("Dica: abra outro cliente com o mesmo código da sala para jogar em rede.", x + 250, right.bottom - 76, 50, self.font_small)
+        self.add_button(pygame.Rect(x, right.bottom - 80, 190, 52), "Iniciar partida", lambda: self.fire_and_forget({"type": "start"}), enabled=can_start)
+        self.add_button(pygame.Rect(x + 205, right.bottom - 80, 150, 52), "Menu", lambda: asyncio.create_task(self.back_to_menu()), enabled=True)
+        self.add_button(pygame.Rect(x + 370, right.bottom - 80, 160, 52), "Como jogar", lambda: asyncio.create_task(self.open_rules_from_game()), enabled=True)
+        self.draw_wrapped("Criar sala = abrir uma partida nova. Entrar = usar o código de uma sala já criada.", x + 540, right.bottom - 76, 22, self.font_small)
 
     def draw_game(self) -> None:
         if self.state and self.state.get("game_mode") != "classic":
@@ -958,6 +989,8 @@ class GreenImpactClient:
         pygame.draw.rect(self.screen, DARK, right, width=2, border_radius=18)
         x, y = right.x + 24, right.y + 18
         self.draw_text(f"Sala {self.room_code}", (x, y), self.font_big, DARK)
+        self.add_button(pygame.Rect(right.right - 170, y, 64, 32), "Menu", lambda: asyncio.create_task(self.back_to_menu()), enabled=True)
+        self.add_button(pygame.Rect(right.right - 98, y, 76, 32), "Regras", lambda: asyncio.create_task(self.open_rules_from_game()), enabled=True)
         y += 38
         y = self.draw_players_compact_panel(x, y)
 
@@ -1022,7 +1055,9 @@ class GreenImpactClient:
                     enabled=not disabled,
                 )
 
-            # Os botões de ação ficam acima do histórico reservado no rodapé.
+            if cp:
+                self.draw_text(f"Créditos: {cp.get('credits')} | Ajudas custam 3 créditos", (x, button_y - 24), self.font_small, DARK)
+            # Os botões de ação ficam acima do histórico reservado no rodapé. Parar fica separado das ajudas.
             self.add_button(pygame.Rect(x, button_y, 120, 38), "Parar", lambda: self.fire_and_forget({"type": "stop"}), enabled=my_turn)
             self.add_button(pygame.Rect(x + 130, button_y, 150, 38), "Eliminar 2", lambda: self.fire_and_forget({"type": "help", "help": "eliminate2"}), enabled=my_turn and not self.state.get("help_used_this_turn"))
             self.add_button(pygame.Rect(x + 290, button_y, 150, 38), "Pesquisa", lambda: self.fire_and_forget({"type": "help", "help": "research"}), enabled=my_turn and not self.state.get("help_used_this_turn"))
@@ -1047,6 +1082,12 @@ class GreenImpactClient:
                 dice_label = self.font_title.render(str(self.dice_value if self.dice_animating else "?"), True, DARK)
                 self.screen.blit(dice_label, dice_label.get_rect(center=dice_rect.center))
                 self.add_button(pygame.Rect(x + 132, y + 20, 260, 52), "Rolando..." if self.dice_animating else "Jogar dado", self.start_dice_animation, enabled=my_turn and not self.dice_animating)
+            elif turn_phase == "turn_result" and cp:
+                self.draw_text("Resultado da rodada", (x, y), self.font_big, DARK)
+                y += 48
+                self.draw_wrapped(self.state.get("special_event") or "Rodada concluída.", x, y, 72, self.font_small, TEXT, 24)
+                y += 90
+                self.add_button(pygame.Rect(x, y, 260, 52), "Próximo jogador", lambda: self.fire_and_forget({"type": "continue"}), enabled=my_turn)
             elif turn_phase == "luck_result" and cp:
                 self.draw_text("Casa de sorte/revés", (x, y), self.font_big, DARK)
                 y += 48
@@ -1054,7 +1095,7 @@ class GreenImpactClient:
                 y += 80
                 self.add_button(pygame.Rect(x, y, 260, 52), "Continuar", lambda: self.fire_and_forget({"type": "continue"}), enabled=my_turn)
             elif turn_phase == "awaiting_question" and cp:
-                self.draw_text("Pausa antes da pergunta", (x, y), self.font_big, DARK)
+                self.draw_text(f"Vez de {cp.get('name')}", (x, y), self.font_big, DARK)
                 y += 48
                 roll_text = f" Dado: {self.state.get('last_roll')}." if self.state.get("last_roll") else ""
                 self.draw_wrapped(
@@ -1090,6 +1131,8 @@ class GreenImpactClient:
         content_w = right.w - 44
 
         self.draw_text(f"Sala {self.room_code}", (x, y), self.font_big, DARK)
+        self.add_button(pygame.Rect(right.right - 170, y, 64, 32), "Menu", lambda: asyncio.create_task(self.back_to_menu()), enabled=True)
+        self.add_button(pygame.Rect(right.right - 98, y, 76, 32), "Regras", lambda: asyncio.create_task(self.open_rules_from_game()), enabled=True)
         y += 38
         y = self.draw_players_compact_panel(x, y, max_width=content_w)
 
@@ -1137,7 +1180,10 @@ class GreenImpactClient:
                 self.add_button(pygame.Rect(x, oy, content_w, 34), f"{letters[idx]}) {option}"[:66], lambda i=idx: self.fire_and_forget({"type": "answer", "answer_index": i}), enabled=not disabled)
             y += 172
 
-            # Ações em duas linhas, acima do histórico.
+            if cp:
+                self.draw_text(f"Créditos de {cp.get('name')}: {cp.get('credits')} | Ajudas custam 3", (x, y - 4), self.font_small, DARK)
+
+            # Ações em duas linhas, acima do histórico. Parar fica separado das ajudas.
             btn_w = (content_w - 14) // 2
             ay = min(y + 4, action_bottom - 84)
             actions = [
@@ -1172,12 +1218,16 @@ class GreenImpactClient:
                 self.add_button(pygame.Rect(bx + 132, by + 18, 250, 52), status, self.start_dice_animation, enabled=my_turn and not self.dice_animating)
                 if self.dice_revealing:
                     self.draw_text("O peão vai andar em 1 segundo.", (bx + 132, by + 74), self.font_small, TEXT)
+            elif phase == "turn_result" and cp:
+                self.draw_text("Resultado da rodada", (bx, by), self.font_big, DARK); by += 48
+                self.draw_wrapped(self.state.get("special_event") or "Rodada concluída.", bx, by, 50, self.font_small, TEXT, 24); by += 100
+                self.add_button(pygame.Rect(bx, by, 260, 48), "Próximo jogador", lambda: self.fire_and_forget({"type": "continue"}), enabled=my_turn)
             elif phase == "luck_result" and cp:
                 self.draw_text("Casa de sorte/revés", (bx, by), self.font_big, DARK); by += 48
                 self.draw_wrapped(self.state.get("special_event") or "Evento especial aplicado.", bx, by, 50, self.font_small, TEXT, 24); by += 88
                 self.add_button(pygame.Rect(bx, by, 260, 48), "Continuar", lambda: self.fire_and_forget({"type": "continue"}), enabled=my_turn)
             elif phase == "awaiting_question" and cp:
-                self.draw_text("Pausa antes da pergunta", (bx, by), self.font_big, DARK); by += 48
+                self.draw_text(f"Vez de {cp.get('name')}", (bx, by), self.font_big, DARK); by += 48
                 roll_text = f" Dado: {self.state.get('last_roll')}." if self.state.get("last_roll") else ""
                 self.draw_wrapped(f"{cp.get('name')} está em {track_label(int(cp.get('position', 0)), self.state.get('game_mode', 'dice_board'))}.{roll_text} A pergunta será {diff_label}.", bx, by, 52, self.font_small, TEXT, 24); by += 86
                 self.add_button(pygame.Rect(bx, by, 260, 48), "Iniciar pergunta", lambda: self.fire_and_forget({"type": "begin_question"}), enabled=my_turn)
@@ -1281,12 +1331,18 @@ class GreenImpactClient:
                     self.running = False
                 elif event.type == pygame.KEYDOWN:
                     if self.in_menu:
-                        if event.key == pygame.K_ESCAPE and self.ui_mode != "home":
+                        if event.key == pygame.K_ESCAPE and self.ui_mode == "how_to_play":
+                            self.close_rules()
+                        elif event.key == pygame.K_ESCAPE and self.ui_mode != "home":
                             self.ui_mode = "home"
                         elif self.ui_mode == "connection":
                             for box in self.menu_inputs.values():
                                 box.handle_key(event)
-                        elif self.ui_mode in ("home", "local_setup"):
+                        elif self.ui_mode == "local_setup":
+                            self.ensure_local_name_inputs()
+                            for box in self.local_name_inputs[:self.local_count]:
+                                box.handle_key(event)
+                        elif self.ui_mode == "home":
                             self.home_name_input.handle_key(event)
                     elif event.key == pygame.K_ESCAPE:
                         self.running = False
@@ -1298,7 +1354,16 @@ class GreenImpactClient:
                                 box.active = box.rect.collidepoint(event.pos)
                                 clicked_input = clicked_input or box.active
                             self.home_name_input.active = False
-                        elif self.ui_mode in ("home", "local_setup"):
+                        elif self.ui_mode == "local_setup":
+                            self.ensure_local_name_inputs()
+                            clicked_input = False
+                            self.home_name_input.active = False
+                            for box in self.menu_inputs.values():
+                                box.active = False
+                            for box in self.local_name_inputs[:self.local_count]:
+                                box.active = box.rect.collidepoint(event.pos)
+                                clicked_input = clicked_input or box.active
+                        elif self.ui_mode == "home":
                             self.home_name_input.active = self.home_name_input.rect.collidepoint(event.pos)
                             clicked_input = self.home_name_input.active
                             for box in self.menu_inputs.values():

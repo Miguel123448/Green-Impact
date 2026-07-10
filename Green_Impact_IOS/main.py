@@ -3,11 +3,9 @@ from __future__ import annotations
 import asyncio
 import json
 import math
-import os
 import queue
 import random
 import socket
-import sys
 import threading
 import time
 from pathlib import Path
@@ -36,19 +34,8 @@ from kivy.utils import platform
 
 from green_impact.common import COLOR_LABELS, PLAYER_RGB
 
-def resource_path(*parts: str) -> Path:
-    """Resolve arquivos tanto no código-fonte quanto em builds PyInstaller/.app.
-
-    No macOS, ao empacotar com PyInstaller, os arquivos de assets e data
-    ficam dentro de sys._MEIPASS. Sem isso, o app abre mas não encontra
-    board.jpg, logo.png ou os JSON das perguntas.
-    """
-    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
-    return base.joinpath(*parts)
-
-
-APP_DIR = resource_path()
-ASSET_DIR = resource_path("assets")
+APP_DIR = Path(__file__).resolve().parent
+ASSET_DIR = APP_DIR / "assets"
 
 BG = (0.92, 0.93, 0.84, 1)
 PANEL = (0.96, 0.965, 0.88, 1)
@@ -287,12 +274,12 @@ class NetworkClient:
         while self.loop is None:
             time.sleep(0.02)
 
-    def connect(self, url: str, name: str, room: str | None, game_mode: str = "dice_board", local_count: int | None = None) -> None:
+    def connect(self, url: str, name: str, room: str | None, game_mode: str = "dice_board", local_count: int | None = None, local_names: list[str] | None = None) -> None:
         self._ensure_loop()
         assert self.loop is not None
-        asyncio.run_coroutine_threadsafe(self._connect(url, name, room, game_mode, local_count), self.loop)
+        asyncio.run_coroutine_threadsafe(self._connect(url, name, room, game_mode, local_count, local_names or []), self.loop)
 
-    async def _connect(self, url: str, name: str, room: str | None, game_mode: str = "dice_board", local_count: int | None = None) -> None:
+    async def _connect(self, url: str, name: str, room: str | None, game_mode: str = "dice_board", local_count: int | None = None, local_names: list[str] | None = None) -> None:
         try:
             self.on_log(f"Conectando em {url}...")
             self.ws = await websockets.connect(url)
@@ -300,7 +287,7 @@ class NetworkClient:
             if room:
                 await self.send({"type": "join", "room": room.upper(), "name": name})
             elif local_count:
-                await self.send({"type": "create_local", "name": name, "count": local_count})
+                await self.send({"type": "create_local", "name": name, "count": local_count, "names": local_names or []})
             else:
                 await self.send({"type": "create", "name": name, "game_mode": game_mode})
             await self._listen()
@@ -330,16 +317,19 @@ class NetworkClient:
             asyncio.run_coroutine_threadsafe(self.ws.close(), self.loop)
 
 
-
 def pos_label(state, pos):
+    """Retorna o nome correto da posição no tabuleiro atual.
+
+    No tabuleiro novo existem casas intermediárias de Sorte/Revés; por isso
+    não podemos exibir somente o número inteiro da posição interna.
+    """
     mode = (state or {}).get("game_mode", "dice_board")
     try:
         return track_label(int(pos or 0), mode)
     except Exception:
         return str(pos)
 
-
-class GreenImpactApp(App):
+class GreenImpactAndroidApp(App):
     title = "Green Impact"
     icon = str(ASSET_DIR / "app_icon.png")
 
@@ -362,12 +352,14 @@ class GreenImpactApp(App):
         self.panel_scroll: ScrollView | None = None
         self.content: BoxLayout | None = None
         self.current_screen = "home"
+        self.rules_previous_screen: str | None = None
         self.last_render_signature: tuple[Any, ...] | None = None
         self.home_name_input: TextInput | None = None
         self.name_input: TextInput | None = None
         self.host_input: TextInput | None = None
         self.port_input: TextInput | None = None
         self.room_input: TextInput | None = None
+        self.local_name_inputs: list[TextInput] = []
         self.timeout_sent_for_question: str | None = None
         self.timer_label: WrappedLabel | None = None
         self.local_count = 2
@@ -594,6 +586,7 @@ class GreenImpactApp(App):
             self.board.redraw()
         self.timer_label = None
         self.current_screen = "home"
+        self.rules_previous_screen: str | None = None
         self.last_render_signature = None
         self.state = None
         self.you = None
@@ -621,7 +614,7 @@ class GreenImpactApp(App):
         self.add(self.make_button("Um jogador", self.start_one_player, height=54))
         self.add(self.make_button("Multijogador online", self.render_connection_menu, height=54))
         self.add(self.make_button("Multijogador local", self.render_local_multiplayer_menu, height=54))
-        self.add(self.make_button("Como jogar", self.render_how_to_play, height=54))
+        self.add(self.make_button("Como jogar", self.open_how_to_play, height=54))
 
         info = self.card()
         info.add_widget(self.label(
@@ -635,6 +628,31 @@ class GreenImpactApp(App):
         self.add(info)
         if self.messages:
             self.add(self.message_box())
+
+    def open_how_to_play(self) -> None:
+        """Abre a tela de regras preservando a tela/sala atual."""
+        if self.current_screen != "how_to_play":
+            self.rules_previous_screen = self.current_screen
+        self.render_how_to_play()
+
+    def close_how_to_play(self) -> None:
+        """Volta para a tela de onde as regras foram abertas."""
+        previous = self.rules_previous_screen or "home"
+        self.rules_previous_screen = None
+        if previous == "home":
+            self.render_main_menu()
+        elif previous == "connection":
+            self.render_connection_menu()
+        elif previous == "local_setup":
+            self.render_local_multiplayer_menu()
+        elif previous == "lobby":
+            self.render_lobby()
+        elif previous == "game":
+            self.render_game()
+        elif previous == "ended":
+            self.render_ended()
+        else:
+            self.render_main_menu()
 
     def render_how_to_play(self) -> None:
         self.current_screen = "how_to_play"
@@ -656,7 +674,7 @@ class GreenImpactApp(App):
             c.add_widget(self.label(f"[b]{title}[/b]\n{body}", 15, False, TEXT, min_height=64))
             self.finalize_card(c)
             self.add(c)
-        self.add(self.make_button("Voltar", self.render_main_menu, height=54))
+        self.add(self.make_button("Voltar", self.close_how_to_play, height=54))
 
 
     def start_dice_animation(self) -> None:
@@ -702,25 +720,32 @@ class GreenImpactApp(App):
         Clock.schedule_once(reveal_roll, 0.90)
         Clock.schedule_once(send_roll, 1.90)
 
+    def ensure_local_name_inputs(self) -> None:
+        while len(self.local_name_inputs) < 4:
+            idx = len(self.local_name_inputs)
+            self.local_name_inputs.append(self.make_input(f"Jogador {idx + 1}"))
+
+    def local_player_names(self) -> list[str]:
+        self.ensure_local_name_inputs()
+        names = []
+        for i in range(self.local_count):
+            value = (self.local_name_inputs[i].text or "").strip() or f"Jogador {i + 1}"
+            names.append(value[:20])
+        return names
+
     def render_local_multiplayer_menu(self) -> None:
         if self.board:
             self.board.game_mode = "dice_board"
             self.board.redraw()
         self.current_screen = "local_setup"
         self.clear_panel()
+        self.ensure_local_name_inputs()
         self.add(self.title_label("Multijogador local", 30))
 
         info = self.card(padding=10, spacing=4)
-        info.add_widget(self.label("Jogue com vários jogadores no mesmo dispositivo usando o novo tabuleiro, dado animado e casas de sorte/revés.", 15, False, TEXT, min_height=60))
+        info.add_widget(self.label("Vários jogadores no mesmo dispositivo. Escolha a quantidade e informe o nome de cada jogador.", 15, False, TEXT, min_height=56))
         self.finalize_card(info)
         self.add(info)
-
-        form = self.card(padding=10, spacing=6)
-        form.add_widget(self.label("Nome base dos jogadores", 14, False, DARK, min_height=24))
-        self.home_name_input = self.make_input(self.home_name_input.text if self.home_name_input else "Jogador")
-        form.add_widget(self.home_name_input)
-        self.finalize_card(form)
-        self.add(form)
 
         count_card = self.card(padding=10, spacing=8)
         count_card.add_widget(self.label(f"Quantidade de jogadores: [b]{self.local_count}[/b]", 20, False, DARK, min_height=40))
@@ -731,8 +756,20 @@ class GreenImpactApp(App):
         self.finalize_card(count_card)
         self.add(count_card)
 
-        self.add(self.make_button("Iniciar multijogador local", self.start_local_multiplayer, height=58))
-        self.add(self.make_button("Voltar", self.render_main_menu, height=52))
+        names_card = self.card(padding=10, spacing=6)
+        names_card.add_widget(self.label("Nomes dos jogadores", 18, True, DARK, min_height=32))
+        for i in range(self.local_count):
+            names_card.add_widget(self.label(f"Jogador {i + 1}", 13, False, DARK, min_height=20))
+            names_card.add_widget(self.local_name_inputs[i])
+        self.finalize_card(names_card)
+        self.add(names_card)
+
+        grid2 = self.button_grid(cols=2, height=122)
+        grid2.add_widget(self.make_button("Iniciar local", self.start_local_multiplayer, height=56))
+        grid2.add_widget(self.make_button("Como jogar", self.open_how_to_play, height=56))
+        grid2.add_widget(self.make_button("Voltar", self.render_main_menu, height=56))
+        grid2.add_widget(self.label("", 1, False, TEXT, min_height=56))
+        self.add(grid2)
         if self.connection_error:
             self.add(self.label("Erro: " + self.connection_error, 14, False, RED, min_height=36))
 
@@ -746,39 +783,37 @@ class GreenImpactApp(App):
             self.board.redraw()
         self.current_screen = "connection"
         self.clear_panel()
-        self.add(self.title_label("Multijogador", 30))
-        self.add(self.label("Conecte por IP ou abra um servidor local no aparelho.", 15, False, TEXT))
+        self.add(self.title_label("Multijogador online", 30))
+        self.add(self.label("Criar sala abre uma partida nova. Entrar na sala usa o código mostrado para quem criou a partida.", 15, False, TEXT, min_height=58))
+
+        previous_name = self.name_input.text if self.name_input else (self.home_name_input.text if self.home_name_input else "Jogador")
+        previous_room = self.room_input.text if self.room_input else ""
+        previous_host = self.host_input.text if self.host_input else DEFAULT_SERVER_HOST
+        previous_port = self.port_input.text if self.port_input else DEFAULT_SERVER_PORT
 
         form = self.card()
         form.add_widget(self.label("Seu nome", 14, False, DARK, min_height=22))
-        self.name_input = self.make_input(self.home_name_input.text if self.home_name_input else "Jogador")
+        self.name_input = self.make_input(previous_name)
         form.add_widget(self.name_input)
-        form.add_widget(self.label("IP do servidor", 14, False, DARK, min_height=22))
-        self.host_input = self.make_input(DEFAULT_SERVER_HOST)
-        form.add_widget(self.host_input)
-        form.add_widget(self.label("Porta", 14, False, DARK, min_height=22))
-        self.port_input = self.make_input(DEFAULT_SERVER_PORT)
-        form.add_widget(self.port_input)
         form.add_widget(self.label("Código da sala", 14, False, DARK, min_height=22))
-        self.room_input = self.make_input("")
+        self.room_input = self.make_input(previous_room)
         form.add_widget(self.room_input)
+        self.host_input = self.make_input(previous_host)
+        self.port_input = self.make_input(previous_port)
         self.finalize_card(form)
         self.add(form)
 
         grid = self.button_grid(cols=2, height=112)
-        grid.add_widget(self.make_button("Criar sala no IP", self.create_room_on_ip, height=52))
-        grid.add_widget(self.make_button("Entrar na sala", self.join_room_on_ip, height=52))
-        grid.add_widget(self.make_button("Servidor local", self.local_server_and_create, height=52))
+        grid.add_widget(self.make_button("Criar nova sala", self.create_room_on_ip, height=52))
+        grid.add_widget(self.make_button("Entrar com código", self.join_room_on_ip, height=52))
+        grid.add_widget(self.make_button("Como jogar", self.open_how_to_play, height=52))
         grid.add_widget(self.make_button("Voltar", self.render_main_menu, height=52))
         self.add(grid)
 
         help_box = self.card()
         help_box.add_widget(self.label(
-            f"Para jogar no mesmo aparelho, use Um jogador. Para jogar na mesma rede, abra um servidor local em um aparelho e os outros entram com o IP local dele. IP local detectado: [b]{self.lan_ip}[/b].",
-            13,
-            False,
-            TEXT,
-            min_height=55,
+            "IP e porta ficam configurados internamente. Para jogar em rede local, use a opção Servidor local em uma versão de teste/PC ou mantenha o servidor online ativo.",
+            13, False, TEXT, min_height=62,
         ))
         self.finalize_card(help_box)
         self.add(help_box)
@@ -854,7 +889,7 @@ class GreenImpactApp(App):
                 self.connection_error = "Erro ao abrir servidor local: " + self.local_server_error
                 self.render_local_multiplayer_menu()
                 return
-            self.network.connect(f"ws://{LOCALHOST}:{port}", name, None, game_mode="dice_board", local_count=self.local_count)
+            self.network.connect(f"ws://{LOCALHOST}:{port}", name, None, game_mode="dice_board", local_count=self.local_count, local_names=self.local_player_names())
 
         Clock.schedule_once(delayed_connect, 0.8)
 
@@ -958,9 +993,14 @@ class GreenImpactApp(App):
 
         is_host = bool(me and me.get("is_host"))
         can_start = bool(is_host and me and me.get("color") and all(p.get("color") for p in players))
-        self.add(self.make_button("Iniciar partida", lambda: self.send({"type": "start"}), disabled=not can_start, height=58))
+        grid_nav = self.button_grid(cols=3, height=62)
+        grid_nav.add_widget(self.make_button("Iniciar partida", lambda: self.send({"type": "start"}), disabled=not can_start, height=54))
+        grid_nav.add_widget(self.make_button("Menu", self.return_to_menu, height=54))
+        grid_nav.add_widget(self.make_button("Como jogar", self.open_how_to_play, height=54))
+        self.add(grid_nav)
         if not is_host:
             self.add(self.label("Apenas o criador da sala pode iniciar.", 13, False, TEXT, min_height=28))
+        self.add(self.label("Criar sala = abrir uma partida nova. Entrar = usar o código de uma sala já criada.", 13, False, TEXT, min_height=42))
         if self.messages:
             self.add(self.message_box())
 
@@ -980,7 +1020,8 @@ class GreenImpactApp(App):
             prefix = "▶ " if p.get("id") == current_id else "• "
             color = COLOR_LABELS.get(p.get("color"), "Sem cor")
             txt = f"{prefix}[b]{p.get('name')}[/b] | {color} | casa {pos_label(self.state, p.get('position'))} | {p.get('credits')} créditos{status}"
-            box.add_widget(self.label(txt, 13 if compact else 15, False, TEXT, min_height=25))
+            fs = 16 if p.get('id') == current_id else (13 if compact else 15)
+            box.add_widget(self.label(txt, fs, False, DARK if p.get('id') == current_id else TEXT, min_height=30 if p.get('id') == current_id else 25))
         self.finalize_card(box)
         return box
 
@@ -993,6 +1034,10 @@ class GreenImpactApp(App):
             self.add(self.title_label(f"Sala {self.room_code} - Tabuleiro com dado", 24))
         else:
             self.add(self.title_label(f"Sala {self.room_code}", 28))
+        nav = self.button_grid(cols=2, height=54)
+        nav.add_widget(self.make_button("Menu", self.return_to_menu, height=48))
+        nav.add_widget(self.make_button("Como jogar", self.open_how_to_play, height=48))
+        self.add(nav)
         self.add(self.players_box(compact=True))
 
         if not self.state:
@@ -1045,14 +1090,27 @@ class GreenImpactApp(App):
                 txt += "  (eliminada)"
             self.add(self.make_button(txt, lambda i=idx: self.send({"type": "answer", "answer_index": i}), disabled=disabled, height=58))
 
-        actions = self.button_grid(cols=2, height=174)
-        actions.add_widget(self.make_button("Parar", lambda: self.send({"type": "stop"}), disabled=not my_turn, height=52))
-        actions.add_widget(self.make_button("Eliminar 2", lambda: self.send({"type": "help", "help": "eliminate2"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
-        actions.add_widget(self.make_button("Pesquisa", lambda: self.send({"type": "help", "help": "research"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
-        actions.add_widget(self.make_button("Especialista", lambda: self.send({"type": "help", "help": "expert"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
-        actions.add_widget(self.make_button("Pular", lambda: self.send({"type": "help", "help": "skip"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
-        actions.add_widget(self.label("Ajudas custam 3 créditos", 12, False, TEXT, min_height=52, halign="center"))
-        self.add(actions)
+        cp = self.current_player()
+        saldo = cp.get("credits") if cp else "-"
+        self.add(self.label(f"[b]Créditos do jogador da vez:[/b] {saldo}. Cada ajuda custa 3 créditos.", 15, False, DARK, min_height=40))
+
+        helps = self.card(padding=8, spacing=6)
+        helps.add_widget(self.label("Ajudas", 18, True, DARK, min_height=30))
+        grid = self.button_grid(cols=2, height=174)
+        grid.add_widget(self.make_button("Eliminar 2 alternativas", lambda: self.send({"type": "help", "help": "eliminate2"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
+        grid.add_widget(self.make_button("Pesquisa (+20s)", lambda: self.send({"type": "help", "help": "research"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
+        grid.add_widget(self.make_button("Especialista", lambda: self.send({"type": "help", "help": "expert"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
+        grid.add_widget(self.make_button("Pular pergunta", lambda: self.send({"type": "help", "help": "skip"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
+        helps.add_widget(grid)
+        self.finalize_card(helps)
+        self.add(helps)
+
+        stop_card = self.card(padding=8, spacing=4)
+        stop_card.add_widget(self.label("Desistir da partida", 16, True, DARK, min_height=28))
+        stop_card.add_widget(self.label("Use Parar apenas se não quiser arriscar perder tudo. Você fica com metade dos créditos e sai das próximas rodadas.", 13, False, TEXT, min_height=50))
+        stop_card.add_widget(self.make_button("Parar", lambda: self.send({"type": "stop"}), disabled=not my_turn, height=54))
+        self.finalize_card(stop_card)
+        self.add(stop_card)
 
     def render_pause_area(self, cp: dict[str, Any] | None, my_turn: bool) -> None:
         self.timer_label = None
@@ -1080,12 +1138,16 @@ class GreenImpactApp(App):
             self.finalize_card(dice_card)
             pause.add_widget(dice_card)
             pause.add_widget(self.make_button(btn_text, self.start_dice_animation, disabled=(not my_turn or self.dice_animating), height=60))
+        elif phase == "turn_result" and cp:
+            pause.add_widget(self.label("Resultado da rodada", 23, True, DARK, min_height=38))
+            pause.add_widget(self.label(self.state.get("special_event") or "Rodada concluída.", 16, False, TEXT, min_height=90))
+            pause.add_widget(self.make_button("Próximo jogador", lambda: self.send({"type": "continue"}), disabled=not my_turn, height=60))
         elif phase == "luck_result" and cp:
             pause.add_widget(self.label("Casa de sorte/revés", 23, True, DARK, min_height=38))
             pause.add_widget(self.label(self.state.get("special_event") or "Evento especial aplicado.", 15, False, TEXT, min_height=72))
             pause.add_widget(self.make_button("Continuar", lambda: self.send({"type": "continue"}), disabled=not my_turn, height=60))
         elif phase == "awaiting_question" and cp:
-            pause.add_widget(self.label("Pausa antes da pergunta", 23, True, DARK, min_height=38))
+            pause.add_widget(self.label(f"Vez de {cp.get('name')}", 26, True, DARK, min_height=44))
             roll_txt = f" Dado: {self.state.get('last_roll')}." if self.state.get("last_roll") else ""
             pause.add_widget(self.label(
                 f"{cp.get('name')} está em {pos_label(self.state, cp.get('position'))}.{roll_txt} A pergunta será: [b]{DIFF_LABELS.get(pending, pending or '')}[/b]. O cronômetro só começa depois de tocar no botão abaixo.",
@@ -1141,11 +1203,14 @@ class GreenImpactApp(App):
             self.finalize_card(c)
             self.add(c)
         self.add(self.event_log_box())
-        self.add(self.make_button("Voltar ao menu", self.return_to_menu, height=56))
+        grid_end = self.button_grid(cols=2, height=62)
+        grid_end.add_widget(self.make_button("Voltar ao menu", self.return_to_menu, height=56))
+        grid_end.add_widget(self.make_button("Como jogar", self.open_how_to_play, height=56))
+        self.add(grid_end)
 
     def on_stop(self) -> None:
         self.network.close()
 
 
 if __name__ == "__main__":
-    GreenImpactApp().run()
+    GreenImpactAndroidApp().run()

@@ -2,113 +2,481 @@
   {
     "id": "hard-001",
     "difficulty": "hard",
-    "prompt": "Qual é a meta da ODS 9 em relação à sustentabilidade das infraestruturas?",
-    "options": ["Infraestruturas sustentáveis", "Reduzir emissões industriais", "Infraestruturas de qualidade", "Modernizar em países desenvolvidos"],
-    "answer_index": 2
+    "prompt": "Qual é a meta da ODS 9 em relação às infraestruturas?",
+    "options": [
+      "Promover a modernização industrial por meio da redução das emissões de carbono nas economias avançadas.",
+      "Desenvolver infraestruturas de qualidade, confiáveis, sustentáveis e resilientes, promovendo o desenvolvimento econômico e o bem-estar humano com acesso equitativo e a preços acessíveis.",
+      "Substituir integralmente as infraestruturas existentes por sistemas de baixa emissão de carbono até 2030.",
+      "Restringir os investimentos em infraestrutura aos setores industriais de alta tecnologia."
+    ],
+    "answer_index": 1
   },
   {
     "id": "hard-002",
     "difficulty": "hard",
-    "prompt": "Qual é a meta da ODS 14 em relação aos resíduos marinhos?",
-    "options": ["Reduzir resíduos em 50%", "Prevenir e reduzir poluição", "Eliminar resíduos plásticos", "Tecnologias de limpeza oceânica"],
+    "prompt": "Qual é a principal meta da ODS 14 em relação aos resíduos marinhos?",
+    "options": [
+      "Reduzir resíduos em 100%",
+      "Prevenir e reduzir a poluição dos mares",
+      "Reduzir a desmatamento ilegal",
+      "Tecnologias de limpeza oceânica"
+    ],
     "answer_index": 1
   },
   {
     "id": "hard-003",
     "difficulty": "hard",
     "prompt": "Qual é a meta específica da ODS 15 em relação às florestas?",
-    "options": ["Plantar árvores em áreas urbanas", "Promover a gestão sustentável das florestas", "Reduzir o desmatamento ilegal", "Promover a gestão sustentável das florestas"],
+    "options": [
+      "Plantar árvores em áreas urbanas",
+      "Aumentar o uso de energias renováveis",
+      "Padronizar o desmatamento ilegal",
+      "Promover a gestão sustentável das florestas"
+    ],
     "answer_index": 3
   },
   {
     "id": "hard-004",
     "difficulty": "hard",
     "prompt": "Quais são os três pilares que sustentam a Agenda 2030?",
-    "options": ["Economia, Sociedade e Prosperidade", "Desenvolvimento Social, Econômico e Ambiental", "Prosperidade, Pessoas e Planeta", "Igualdade, Sustentabilidade e Desenvolvimento"],
+    "options": [
+      "Economia, Sociedade e Prosperidade",
+      "Desenvolvimento Social, Econômico e Ambiental",
+      "Prosperidade, Pessoas e Planeta",
+      "Igualdade, Sustentabilidade e Desenvolvimento"
+    ],
     "answer_index": 1
   },
   {
     "id": "hard-005",
     "difficulty": "hard",
-    "prompt": "Qual é o objetivo da ODS 17 da Agenda 2030?",
-    "options": ["Parcerias para a implementação", "Reduzir a poluição", "Combater a desertificação", "Saúde reprodutiva"],
+    "prompt": "Qual é o principal objetivo do ODS 17 da Agenda 2030?",
+    "options": [
+      "Fortalecer os meios de implementação e revitalizar a parceria global para o desenvolvimento sustentável.",
+      "Promover a redução da poluição ambiental por meio da transição para padrões sustentáveis de produção e consumo.",
+      "Combater a desertificação e restaurar ecossistemas degradados, assegurando o uso sustentável dos recursos terrestres.",
+      "Garantir o acesso universal aos serviços de saúde sexual e reprodutiva e reduzir a mortalidade materna."
+    ],
     "answer_index": 0
   },
   {
     "id": "hard-006",
     "difficulty": "hard",
-    "prompt": "O que significa o termo ODS na Agenda 2030?",
-    "options": ["Objetivos de Desenvolvimento Sistemático", "Objetivos de Desenvolvimento Sustentável", "Objetivos de Desenvolvimento Social", "Objetivos de Desenvolvimento Sincronizado"],
-    "answer_index": 1
+    "prompt": "Qual é a principal limitação do modelo de Intensificação Sustentável da Agricultura (ISA)?",
+    "options": [
+      "Necessidade de elevados investimentos iniciais",
+      "Adaptação climática difícil",
+      "Falta de capacitação técnica",
+      "Dependência de insumos químicos"
+    ],
+    "answer_index": 0
   },
   {
     "id": "hard-007",
     "difficulty": "hard",
-    "prompt": "Qual componente é central na iniciativa Adaptação da Agricultura Africana para a resiliência climática?",
-    "options": ["Práticas agroecológicas e variedades resistentes à seca", "Sistemas de irrigação de precisão", "Fortalecimento de cadeias de valor agrícolas", "Criação de bancos de sementes locais"],
-    "answer_index": 0
+    "prompt": "Qual das seguintes doenças é considerada uma doença não transmissível (DNT) e tem um impacto significativo na mortalidade global, particularmente em países de baixa e média renda?",
+    "options": [
+      "Tuberculose",
+      "Diabetes tipo 2",
+      "Malária",
+      "Hepatite B"
+    ],
+    "answer_index": 1
   },
   {
     "id": "hard-008",
     "difficulty": "hard",
-    "prompt": "Qual é o principal desafio para a transição global em direção a práticas de consumo sustentável nas economias emergentes?",
-    "options": ["Alto custo inicial para tecnologias verdes", "Escassez de matérias-primas recicláveis", "Resistência dos consumidores a mudar seus hábitos", "Falta de regulamentações ambientais rigorosas"],
+    "prompt": "Qual das alternativas melhor representa o escopo da ODS 16 da Agenda 2030?",
+    "options": [
+      "Promover sociedades pacíficas e inclusivas, ampliar o acesso à justiça e fortalecer instituições transparentes, responsáveis e eficazes.",
+      "Reduzir as desigualdades sociais por meio da inclusão econômica e da garantia de oportunidades para grupos vulneráveis.",
+      "Estabelecer mecanismos globais de cooperação e financiamento para apoiar a implementação dos demais objetivos de desenvolvimento sustentável.",
+      "Desenvolver políticas de segurança pública voltadas exclusivamente para a redução da criminalidade e do terrorismo."
+    ],
     "answer_index": 0
   },
   {
     "id": "hard-009",
     "difficulty": "hard",
-    "prompt": "Quem foi o primeiro a formalizar o conceito de desenvolvimento sustentável, que mais tarde influenciaria a ODS 12?",
-    "options": ["John Elkington", "Gro Harlem Brundtland", "Amartya Sen", "Jeffrey Sachs"],
-    "answer_index": 1
+    "prompt": "Quais são os cinco Ps frequentemente associados à Agenda 2030?",
+    "options": [
+      "Pessoas, Planeta, Prosperidade, Progresso, Parcerias",
+      "Pessoas, Planeta, Prosperidade, Paz, Política",
+      "Pessoas, Planeta, Prosperidade, Parcerias, Participação",
+      "Pessoas, Planeta, Prosperidade, Paz, Parcerias"
+    ],
+    "answer_index": 3
   },
   {
     "id": "hard-010",
     "difficulty": "hard",
-    "prompt": "Qual é a maior barreira para a implementação de sistemas de energia solar em áreas rurais de países em desenvolvimento?",
-    "options": ["Falta de radiação solar suficiente", "Alto custo inicial de instalação", "Baixa demanda por energia", "Falta de mão de obra qualificada"],
-    "answer_index": 1
+    "prompt": "Qual é o principal obstáculo para a implementação de programas de educação inclusiva em regiões de conflito?",
+    "options": [
+      "A insegurança e a fragilidade das instituições educacionais, que comprometem o acesso, a permanência e a proteção dos estudantes.",
+      "A inexistência de sistemas nacionais de avaliação do desempenho escolar comparáveis internacionalmente.",
+      "A limitação do ensino bilíngue e a falta de materiais didáticos em idiomas estrangeiros.",
+      "A reduzida participação das universidades em programas de cooperação científica internacional."
+    ],
+    "answer_index": 0
   },
   {
     "id": "hard-011",
     "difficulty": "hard",
-    "prompt": "Em qual país a proporção de mulheres em cargos de liderança empresarial é mais alta, segundo estudos recentes?",
-    "options": ["Noruega", "Japão", "Estados Unidos", "Índia"],
-    "answer_index": 0
+    "prompt": "Qual das seguintes abordagens é considerada mais eficaz para a erradicação da pobreza extrema em contextos rurais?",
+    "options": [
+      "Incentivar a substituição das atividades agrícolas por setores industriais concentrados em centros urbanos.",
+      "Ampliar o acesso de pequenos produtores a serviços financeiros, crédito e microfinanciamento, favorecendo investimentos produtivos e geração de renda.",
+      "Reduzir barreiras tarifárias para aumentar a competitividade de produtos importados no mercado doméstico.",
+      "Priorizar investimentos em infraestrutura aeroportuária para estimular o crescimento do setor de serviços."
+    ],
+    "answer_index": 1
   },
   {
     "id": "hard-012",
     "difficulty": "hard",
-    "prompt": "Qual tecnologia emergente está sendo utilizada para purificar água em comunidades sem acesso a sistemas de tratamento tradicionais?",
-    "options": ["Osmose reversa", "Filtração por grafeno", "Destilação solar", "Nanotecnologia"],
-    "answer_index": 3
+    "prompt": "Qual tecnologia emergente permite a execução de algoritmos inspirados no funcionamento do cérebro humano, sendo amplamente utilizada em reconhecimento de padrões e tomada de decisão automatizada?",
+    "options": [
+      "Inteligência Artificial",
+      "Internet das Coisas",
+      "Computação em Nuvem",
+      "Manufatura Aditiva"
+    ],
+    "answer_index": 0
   },
   {
     "id": "hard-013",
     "difficulty": "hard",
-    "prompt": "Qual cidade é conhecida por seu sistema de transporte público mais eficiente e sustentável?",
-    "options": ["Los Angeles", "Copenhague", "Tóquio", "Nova York"],
-    "answer_index": 1
+    "prompt": "Em economias emergentes, qual fator é frequentemente reconhecido como um obstáculo à transição para padrões sustentáveis de produção e consumo?",
+    "options": [
+      "Os custos iniciais associados à implementação de tecnologias limpas e à adaptação da infraestrutura produtiva.",
+      "A determinação das Nações Unidas de restringir o comércio internacional de produtos sustentáveis.",
+      "A inviabilidade econômica comprovada dos modelos de economia circular em países em desenvolvimento.",
+      "A proibição do uso de fontes renováveis de energia em atividades industriais."
+    ],
+    "answer_index": 0
   },
   {
     "id": "hard-014",
     "difficulty": "hard",
-    "prompt": "Qual prática pesqueira é considerada mais sustentável para a preservação dos estoques de peixes?",
-    "options": ["Pesca de arrasto", "Pesca com redes de deriva", "Aquicultura em circuito fechado", "Pesca com explosivos"],
-    "answer_index": 2
+    "prompt": "Qual das seguintes medidas é mais eficaz para reduzir as desigualdades econômicas dentro de um país?",
+    "options": [
+      "Redução dos impostos para as grandes corporações",
+      "Implementação de políticas de redistribuição de renda e programas sociais inclusivos",
+      "Aumento das tarifas de importação",
+      "Incentivo à concentração de riqueza em grandes centros urbanos"
+    ],
+    "answer_index": 1
   },
   {
     "id": "hard-015",
     "difficulty": "hard",
-    "prompt": "Qual país lidera o mundo na capacidade instalada de energia eólica offshore?",
-    "options": ["Alemanha", "China", "Reino Unido", "Dinamarca"],
-    "answer_index": 2
+    "prompt": "A definição clássica de desenvolvimento sustentável — “atender às necessidades do presente sem comprometer a capacidade das gerações futuras de atender às suas próprias necessidades” — foi apresentada em qual relatório?",
+    "options": [
+      "Relatório Triple Bottom Line, elaborado por John Elkington.",
+      "Relatório Nosso Futuro Comum (Our Common Future), coordenado por Gro Harlem Brundtland.",
+      "Relatório de Desenvolvimento Humano das Nações Unidas, elaborado por Amartya Sen.",
+      "Relatório do Milênio das Nações Unidas, coordenado por Jeffrey Sachs."
+    ],
+    "answer_index": 1
   },
   {
     "id": "hard-016",
     "difficulty": "hard",
-    "prompt": "Qual método agrícola é mais eficiente para reduzir as emissões de gases de efeito estufa?",
-    "options": ["Agricultura convencional", "Agricultura orgânica", "Agricultura de conservação", "Agricultura de precisão"],
+    "prompt": "Qual é a maior barreira para a implementação de sistemas de energia solar em áreas rurais de países em desenvolvimento?",
+    "options": [
+      "Falta de radiação solar suficiente",
+      "Alto custo inicial de instalação",
+      "Baixa demanda por energia",
+      "Falta de mão de obra qualificada"
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "hard-017",
+    "difficulty": "hard",
+    "prompt": "Qual país foi pioneiro na adoção de uma lei que estabeleceu cotas para a participação feminina nos conselhos de administração de empresas de capital aberto, tornando-se uma referência em liderança empresarial feminina?",
+    "options": [
+      "Noruega",
+      "Japão",
+      "Estados Unidos",
+      "Índia"
+    ],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-018",
+    "difficulty": "hard",
+    "prompt": "Qual tecnologia emergente utiliza nanomateriais à base de carbono para remover contaminantes e sais da água com alta eficiência, sendo apontada como promissora para regiões com infraestrutura limitada?",
+    "options": [
+      "Filtração por grafeno",
+      "Fermentação anaeróbica da água contaminada",
+      "Vaporização geotérmica espontânea",
+      "Sedimentação por campos gravitacionais artificiais"
+    ],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-019",
+    "difficulty": "hard",
+    "prompt": "A desigualdade no acesso às tecnologias educacionais em áreas rurais pode contribuir principalmente para:",
+    "options": [
+      "Aumento da taxa de evasão escolar",
+      "Melhora nas habilidades de leitura e escrita",
+      "Maior eficiência no gerenciamento escolar",
+      "Redução do número de professores necessários"
+    ],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-020",
+    "difficulty": "hard",
+    "prompt": "Qual setor econômico tem mostrado maior crescimento de empregos verdes nos últimos cinco anos?",
+    "options": [
+      "Indústria automotiva",
+      "Agricultura",
+      "Energias renováveis",
+      "Tecnologia da informação"
+    ],
+    "answer_index": 2
+  },
+  {
+    "id": "hard-021",
+    "difficulty": "hard",
+    "prompt": "Qual cidade é frequentemente citada como referência mundial em mobilidade urbana sustentável devido à integração entre transporte público e infraestrutura para bicicletas?",
+    "options": [
+      "Los Angeles",
+      "Copenhague",
+      "Dubai",
+      "Brasília"
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "hard-022",
+    "difficulty": "hard",
+    "prompt": "Qual prática é considerada mais sustentável para a conservação dos estoques pesqueiros e a redução da captura incidental?",
+    "options": [
+      "Pesca de arrasto de fundo em larga escala",
+      "Pesca com explosivos em recifes costeiros",
+      "Pesca seletiva com anzol e linha, associada ao manejo baseado em cotas",
+      "Pesca com redes de deriva oceânicas de grande extensão"
+    ],
+    "answer_index": 2
+  },
+  {
+    "id": "hard-023",
+    "difficulty": "hard",
+    "prompt": "Qual organização internacional coordena a Agenda 2030 e promove parcerias globais para a implementação dos Objetivos de Desenvolvimento Sustentável (ODS)?",
+    "options": [
+      "Fundo Monetário Internacional (FMI)",
+      "Organização das Nações Unidas (ONU)",
+      "Organização Mundial do Comércio (OMC)",
+      "Organização para a Cooperação e Desenvolvimento Econômico (OCDE)"
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "hard-024",
+    "difficulty": "hard",
+    "prompt": "Qual doença infecciosa é atualmente alvo de uma iniciativa global de erradicação liderada pela Organização Mundial da Saúde, tendo sido eliminada na maior parte dos países do mundo?",
+    "options": [
+      "Poliomielite",
+      "Malária",
+      "Tuberculose",
+      "HIV/AIDS"
+    ],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-025",
+    "difficulty": "hard",
+    "prompt": "Qual país foi pioneiro na implantação do primeiro parque eólico offshore comercial do mundo, em 1991?",
+    "options": [
+      "Alemanha",
+      "China",
+      "Reino Unido",
+      "Dinamarca"
+    ],
     "answer_index": 3
+  },
+  {
+    "id": "hard-026",
+    "difficulty": "hard",
+    "prompt": "Qual prática agrícola utiliza sensores, sistemas de posicionamento e análise de dados para otimizar o uso de insumos e reduzir as emissões de gases de efeito estufa?",
+    "options": [
+      "Agricultura convencional",
+      "Agricultura orgânica",
+      "Agricultura de conservação",
+      "Agricultura de precisão"
+    ],
+    "answer_index": 3
+  },
+  {
+    "id": "hard-027",
+    "difficulty": "hard",
+    "prompt": "Qual país foi o primeiro do mundo a eleger um parlamento com maioria feminina, com mais de 50% das cadeiras ocupadas por mulheres?",
+    "options": [
+      "Suécia",
+      "Ruanda",
+      "Finlândia",
+      "Nova Zelândia"
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "hard-028",
+    "difficulty": "hard",
+    "prompt": "Qual país foi pioneiro na implantação de sistemas modernos de saneamento urbano em larga escala durante o século XIX, tornando-se referência para outros países?",
+    "options": [
+      "França",
+      "Reino Unido",
+      "Alemanha",
+      "Estados Unidos"
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "hard-029",
+    "difficulty": "hard",
+    "prompt": "Qual país é responsável pelo programa \"Grande Muralha Verde\", considerado um dos maiores projetos de reflorestamento já realizados?",
+    "options": [
+      "Brasil",
+      "Índia",
+      "Etiópia",
+      "China"
+    ],
+    "answer_index": 3
+  },
+  {
+    "id": "hard-030",
+    "difficulty": "hard",
+    "prompt": "Qual fator político frequentemente compromete a consolidação de sistemas de justiça eficazes em países pós-conflito, dificultando reformas institucionais e a responsabilização por abusos?",
+    "options": [
+      "Escassez de profissionais especializados em direito internacional",
+      "Limitações tecnológicas dos tribunais nacionais",
+      "Resistência das elites políticas e grupos de poder às reformas institucionais",
+      "Excesso de tratados internacionais ratificados pelo país"
+    ],
+    "answer_index": 2
+  },
+  {
+    "id": "hard-031",
+    "difficulty": "hard",
+    "prompt": "Qual condição estrutural está mais diretamente associada às dificuldades de garantir salários dignos e reduzir a pobreza laboral em diferentes países?",
+    "options": [
+      "Elevada desigualdade econômica e concentração de renda",
+      "Uniformização dos sistemas tributários em escala global",
+      "Extinção dos mercados de trabalho formais",
+      "Obrigatoriedade de adoção de um salário mínimo único em todos os países"
+    ],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-032",
+    "difficulty": "hard",
+    "prompt": "Qual cidade-estado é reconhecida internacionalmente por seu programa Green Mark e por possuir uma das maiores concentrações de edifícios sustentáveis do mundo?",
+    "options": [
+      "Dubai",
+      "Nova York",
+      "Singapura",
+      "Vancouver"
+    ],
+    "answer_index": 2
+  },
+  {
+    "id": "hard-033",
+    "difficulty": "hard",
+    "prompt": "Qual crítica é mais frequentemente direcionada aos programas de transferência de renda condicionada?",
+    "options": [
+      "Dependência contínua das famílias beneficiárias",
+      "Eliminação completa da pobreza em curto prazo",
+      "Redução da frequência escolar das crianças beneficiadas",
+      "Aumento da desigualdade de renda"
+    ],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-034",
+    "difficulty": "hard",
+    "prompt": "Qual fenômeno contribui para limitar a ascensão das mulheres a cargos de alta remuneração e liderança nas organizações?",
+    "options": [
+      "Teto de vidro (glass ceiling)",
+      "Curva de Kuznets",
+      "Tragédia dos comuns",
+      "Paradoxo de Jevons"
+    ],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-035",
+    "difficulty": "hard",
+    "prompt": "Qual país foi o primeiro a introduzir um imposto nacional sobre carbono?",
+    "options": [
+      "Suécia",
+      "Austrália",
+      "Canadá",
+      "Nova Zelândia"
+    ],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-036",
+    "difficulty": "hard",
+    "prompt": "Qual grupo de doenças responde por uma parcela significativa das mortes em países de baixa renda, especialmente entre crianças?",
+    "options": [
+      "Doenças infecciosas",
+      "Doenças cardiovasculares",
+      "Câncer",
+      "Acidentes de trânsito"
+    ],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-037",
+    "difficulty": "hard",
+    "prompt": "Qual material semicondutor é empregado em células solares de altíssima eficiência, utilizadas em aplicações aeroespaciais?",
+    "options": [
+      "Silício",
+      "Germânio",
+      "Arseneto de Gálio",
+      "Telureto de Cádmio"
+    ],
+    "answer_index": 2
+  },
+  {
+    "id": "hard-038",
+    "difficulty": "hard",
+    "prompt": "Qual processo biológico converte dióxido de carbono atmosférico em matéria orgânica, constituindo um dos principais mecanismos naturais de remoção de CO₂?",
+    "options": [
+      "Fotossíntese",
+      "Ciclo do nitrogênio",
+      "Desnitrificação",
+      "Metanogênese"
+    ],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-039",
+    "difficulty": "hard",
+    "prompt": "Qual fator é considerado mais desafiador na redução das desigualdades econômicas globais?",
+    "options": [
+      "Crescimento econômico desigual entre países",
+      "Baixa taxa de natalidade nos países desenvolvidos",
+      "Aumento da mobilidade internacional",
+      "Flutuações cambiais frequentes"
+    ],
+    "answer_index": 0
+  },
+  {
+    "id": "hard-040",
+    "difficulty": "hard",
+    "prompt": "Qual é o maior desafio para a implementação de indústrias 4.0 em países emergentes?",
+    "options": [
+      "Falta de recursos naturais",
+      "Escassez de mão de obra",
+      "Deficiência na infraestrutura digital",
+      "Regulamentações governamentais rígidas"
+    ],
+    "answer_index": 2
   }
 ]

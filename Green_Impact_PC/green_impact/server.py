@@ -219,7 +219,7 @@ async def handle_continue(ws: Any) -> None:
         return
     room = ROOMS[code]
     player = get_current_player_for_ws(room, player_id)
-    if not player or room.turn_phase != "luck_result":
+    if not player or room.turn_phase not in {"luck_result", "turn_result"}:
         return
     room.turn_phase = "idle"
     room.special_event = None
@@ -252,19 +252,19 @@ async def apply_wrong_answer(room: Room, player: Player, reason: str = "resposta
     if player.reset_used:
         player.eliminated = True
         player.credits = 0
-        event = f"{player.name} errou novamente e foi eliminado ({reason})."
+        event = f"{player.name} errou novamente e foi eliminado ({reason}). Saldo: {player.credits} créditos."
     else:
         player.reset_used = True
         player.position = 0
         player.credits = 0
-        event = f"{player.name} errou e voltou ao início, perdendo todos os créditos ({reason})."
+        event = f"{player.name} errou e voltou ao início, perdendo todos os créditos ({reason}). Saldo: {player.credits} créditos."
 
     room.current_question = None
     room.deadline_ts = None
-    room.turn_phase = "idle"
+    room.turn_phase = "turn_result"
     room.pending_question_difficulty = None
+    room.special_event = event
     await broadcast(room, event, reveal_answer=True)
-    await next_turn(room)
 
 
 async def expire_if_needed(room: Room) -> bool:
@@ -310,7 +310,16 @@ async def handle_create(ws: Any, data: dict[str, Any]) -> None:
 async def handle_create_local(ws: Any, data: dict[str, Any]) -> None:
     count = int(data.get("count") or 2)
     count = max(2, min(4, count))
+    raw_names = data.get("names") or []
+    if not isinstance(raw_names, list):
+        raw_names = []
     base_name = str(data.get("name") or "Jogador").strip()[:16] or "Jogador"
+    names: list[str] = []
+    for i in range(count):
+        value = ""
+        if i < len(raw_names):
+            value = str(raw_names[i] or "").strip()[:20]
+        names.append(value or f"Jogador {i + 1}")
     code = room_code()
     host_id = str(uuid.uuid4())
     players: dict[str, Player] = {}
@@ -318,7 +327,7 @@ async def handle_create_local(ws: Any, data: dict[str, Any]) -> None:
         pid = host_id if i == 0 else str(uuid.uuid4())
         players[pid] = Player(
             id=pid,
-            name=f"{base_name} {i + 1}" if count > 1 else base_name,
+            name=names[i],
             color=COLORS[i],
             credits=INITIAL_CREDITS,
             is_host=(i == 0),
@@ -428,16 +437,16 @@ async def handle_answer(ws: Any, data: dict[str, Any]) -> None:
     if answer_index == room.current_question.answer_index:
         reward = CREDITS_BY_DIFFICULTY[room.current_question.difficulty]
         player.credits += reward
-        event = f"{player.name} acertou e ganhou {reward} créditos."
+        event = f"{player.name} acertou. Ganhou {reward} créditos de carbono. Saldo atual: {player.credits} créditos."
         room.current_question = None
         room.deadline_ts = None
-        room.turn_phase = "idle"
+        room.turn_phase = "turn_result"
         room.pending_question_difficulty = None
+        room.special_event = event
         await broadcast(room, event, reveal_answer=True)
         if player.position >= max_position_for_mode(room.game_mode):
-            await end_game(room, f"{player.name} completou o percurso")
+            await end_game(room, f"{player.name} completou o percurso com {player.credits} créditos")
             return
-        await next_turn(room)
     else:
         await apply_wrong_answer(room, player)
 
@@ -455,13 +464,15 @@ async def handle_stop(ws: Any) -> None:
         await send(ws, {"type": "error", "message": "Inicie a pergunta antes de decidir parar."})
         return
     player.stopped = True
+    old = player.credits
     player.credits = player.credits // 2
+    event = f"{player.name} decidiu parar. Créditos: {old} → {player.credits}. Ele não participa das próximas rodadas."
     room.current_question = None
     room.deadline_ts = None
-    room.turn_phase = "idle"
+    room.turn_phase = "turn_result"
     room.pending_question_difficulty = None
-    await broadcast(room, f"{player.name} decidiu parar e ficou com metade dos créditos.")
-    await next_turn(room)
+    room.special_event = event
+    await broadcast(room, event)
 
 
 async def handle_timeout(ws: Any) -> None:
@@ -518,22 +529,23 @@ async def handle_help(ws: Any, data: dict[str, Any]) -> None:
         random.shuffle(wrong)
         eliminated = wrong[:2]
         room.current_question.eliminated_options = sorted(set(room.current_question.eliminated_options + eliminated))
-        await broadcast(room, f"{player.name} comprou ajuda: eliminar 2 alternativas.")
+        await broadcast(room, f"{player.name} comprou ajuda: eliminar 2 alternativas. Custo: {HELP_COST} créditos. Saldo: {player.credits} créditos.")
     elif help_type == "research":
         if room.deadline_ts:
             room.deadline_ts += RESEARCH_BONUS_SECONDS
-        await broadcast(room, f"{player.name} comprou pesquisa na internet (+{RESEARCH_BONUS_SECONDS}s).")
+        await broadcast(room, f"{player.name} comprou pesquisa na internet (+{RESEARCH_BONUS_SECONDS}s). Custo: {HELP_COST} créditos. Saldo: {player.credits} créditos.")
     elif help_type == "expert":
         tip = "Dica do especialista: pense no conceito central da ODS relacionada à pergunta e elimine opções que aumentam desigualdade, poluição ou desperdício."
         await send(ws, {"type": "private_tip", "message": tip})
-        await broadcast(room, f"{player.name} comprou ajuda do especialista.")
+        await broadcast(room, f"{player.name} comprou ajuda do especialista. Custo: {HELP_COST} créditos. Saldo: {player.credits} créditos.")
     elif help_type == "skip":
+        event = f"{player.name} usou Pular pergunta. Custo: {HELP_COST} créditos. Saldo atual: {player.credits} créditos."
         room.current_question = None
         room.deadline_ts = None
-        room.turn_phase = "idle"
+        room.turn_phase = "turn_result"
         room.pending_question_difficulty = None
-        await broadcast(room, f"{player.name} pulou a pergunta.")
-        await next_turn(room)
+        room.special_event = event
+        await broadcast(room, event)
     else:
         player.credits += HELP_COST
         room.help_used_this_turn = False

@@ -3,112 +3,480 @@
     "id": "easy-001",
     "difficulty": "easy",
     "prompt": "Qual é uma medida eficaz para garantir o acesso universal à água potável e saneamento?",
-    "options": ["Desperdício de água em atividades industriais", "Poluição de rios e lagos", "Investimento em infraestrutura de saneamento básico e proteção de fontes de água", "Uso excessivo de produtos químicos na agricultura"],
+    "options": [
+      "Desperdício de água em atividades industriais",
+      "Poluição de rios e lagos",
+      "Investimento em infraestrutura de saneamento básico e proteção de fontes de água",
+      "Uso excessivo de produtos químicos na agricultura"
+    ],
     "answer_index": 2
   },
   {
     "id": "easy-002",
     "difficulty": "easy",
     "prompt": "Qual das seguintes ações contribui diretamente para a erradicação da pobreza extrema?",
-    "options": ["Construção de arranha-céus", "Investimento em educação", "Aumento da produção de carros de luxo", "Expansão de parques temáticos"],
+    "options": [
+      "Construção de arranha-céus",
+      "Investimento em educação",
+      "Aumento da produção de carros de luxo",
+      "Expansão de parques temáticos"
+    ],
     "answer_index": 1
   },
   {
     "id": "easy-003",
     "difficulty": "easy",
     "prompt": "Qual dos seguintes fatores é essencial para garantir uma educação inclusiva e equitativa de qualidade?",
-    "options": ["Discriminação de gênero", "Desigualdade de renda", "Acesso universal à educação", "Falta de recursos educacionais"],
+    "options": [
+      "Discriminação de gênero",
+      "Desigualdade de renda",
+      "Acesso universal à educação",
+      "Falta de recursos educacionais"
+    ],
     "answer_index": 2
   },
   {
     "id": "easy-004",
     "difficulty": "easy",
     "prompt": "Qual é o prazo estabelecido para o cumprimento dos Objetivos de Desenvolvimento Sustentável da Agenda 2030?",
-    "options": ["2025", "2030", "2035", "2040"],
+    "options": [
+      "2025",
+      "2030",
+      "2035",
+      "2040"
+    ],
     "answer_index": 1
   },
   {
     "id": "easy-005",
     "difficulty": "easy",
-    "prompt": "O que é o aquecimento global?",
-    "options": ["Aumento gradual da temperatura média da Terra", "Redução da temperatura da Terra", "Fenômeno natural sem influência humana", "Resfriamento das regiões polares"],
+    "prompt": "O que é aquecimento global?",
+    "options": [
+      "Aumento gradual da temperatura média da Terra",
+      "Redução da temperatura da Terra",
+      "Fenômeno natural sem influência humana",
+      "Resfriamento das regiões polares"
+    ],
     "answer_index": 0
   },
   {
     "id": "easy-006",
     "difficulty": "easy",
     "prompt": "O que são energias limpas?",
-    "options": ["Energias que utilizam combustíveis fósseis", "Energias que reduzem o impacto ambiental", "Energias que aumentam a poluição", "Energias obsoletas"],
+    "options": [
+      "Energias que utilizam combustíveis fósseis",
+      "Energias que não emitem poluentes no meio ambiente",
+      "Energias que aumentam a poluição",
+      "Energias obsoletas"
+    ],
     "answer_index": 1
   },
   {
     "id": "easy-007",
     "difficulty": "easy",
     "prompt": "O que é segurança alimentar?",
-    "options": ["Acesso garantido a alimentos suficientes e nutritivos para todos", "Armazenamento adequado de alimentos", "Prevenção de contaminação dos alimentos", "Controle de pragas em plantações"],
+    "options": [
+      "Acesso garantido a alimentos suficientes e nutritivos para todos",
+      "Armazenamento de alimentos",
+      "Prevenção de contaminação dos alimentos",
+      "Controle de pragas em plantações"
+    ],
     "answer_index": 0
   },
   {
     "id": "easy-008",
     "difficulty": "easy",
-    "prompt": "O que significa fome zero no contexto de segurança alimentar?",
-    "options": ["Não ter mais desperdício de alimentos", "Erradicar a fome e garantir acesso a alimentos nutritivos para todos", "Promover apenas alimentos processados", "Aumentar a exportação de alimentos"],
+    "prompt": "O que significa \"fome zero\" no contexto de segurança alimentar?",
+    "options": [
+      "Não ter mais desperdício de alimentos",
+      "Erradicar a fome e garantir acesso a alimentos nutritivos para todos",
+      "Promover apenas alimentos processados",
+      "Aumentar a exportação de alimentos"
+    ],
     "answer_index": 1
   },
   {
     "id": "easy-009",
     "difficulty": "easy",
     "prompt": "Qual das seguintes fontes de energia é considerada uma energia limpa?",
-    "options": ["Energia eólica", "Energia do carvão", "Energia a diesel", "Energia nuclear"],
+    "options": [
+      "Energia eólica",
+      "Energia do carvão",
+      "Energia a diesel",
+      "Energia nuclear"
+    ],
     "answer_index": 0
   },
   {
     "id": "easy-010",
     "difficulty": "easy",
     "prompt": "Qual dos seguintes meios de transporte é considerado mais sustentável?",
-    "options": ["Automóvel", "Avião", "Bicicleta", "Motocicleta"],
+    "options": [
+      "Automóvel",
+      "Avião",
+      "Bicicleta",
+      "Motocicleta"
+    ],
     "answer_index": 2
   },
   {
     "id": "easy-011",
     "difficulty": "easy",
     "prompt": "Qual é um benefício da mobilidade sustentável?",
-    "options": ["Aumento da poluição do ar", "Menor consumo de energia renovável", "Redução do congestionamento urbano", "Maior emissão de gases de efeito estufa"],
+    "options": [
+      "Aumento da poluição do ar",
+      "Menor consumo de energia renovável",
+      "Redução do congestionamento urbano",
+      "Maior emissão de gases de efeito estufa"
+    ],
     "answer_index": 2
   },
   {
     "id": "easy-012",
     "difficulty": "easy",
     "prompt": "Qual é um fator que pode ameaçar a segurança alimentar?",
-    "options": ["Mudanças climáticas", "Agricultura familiar", "Consumo local", "Produção diversificada"],
+    "options": [
+      "Mudanças climáticas",
+      "Agricultura familiar",
+      "Consumo local",
+      "Produção diversificada"
+    ],
     "answer_index": 0
   },
   {
     "id": "easy-013",
     "difficulty": "easy",
-    "prompt": "O que é inclusão social?",
-    "options": ["Exclusão de grupos minoritários", "Garantir a todos acesso igual aos direitos e oportunidades", "Manter as desigualdades sociais", "Ignorar as diferenças entre as pessoas"],
-    "answer_index": 1
+    "prompt": "O que pode ser uma solução para melhorar a mobilidade urbana de forma sustentável?",
+    "options": [
+      "Aumentar o número de carros nas ruas",
+      "Construir mais estacionamentos",
+      "Incentivar o uso de veículos elétricos",
+      "Reduzir a frequência do transporte público"
+    ],
+    "answer_index": 2
   },
   {
     "id": "easy-014",
     "difficulty": "easy",
     "prompt": "Qual é o objetivo principal da conservação da biodiversidade?",
-    "options": ["Aumentar a destruição de habitats naturais", "Reduzir a variedade de espécies na natureza", "Proteger e preservar a diversidade de vida na Terra", "Promover a extinção de animais e plantas"],
+    "options": [
+      "Aumentar a destruição de habitats naturais",
+      "Reduzir a variedade de espécies na natureza",
+      "Proteger e preservar a diversidade de vida na Terra",
+      "Promover a extinção de animais e plantas"
+    ],
     "answer_index": 2
   },
   {
     "id": "easy-015",
     "difficulty": "easy",
-    "prompt": "O que são áreas ambientalmente protegidas?",
-    "options": ["Locais onde a destruição ambiental é incentivada", "Locais onde a biodiversidade é ameaçada", "Locais onde a caça ilegal é permitida", "Locais onde a vida selvagem é protegida e conservada"],
-    "answer_index": 3
+    "prompt": "O que é inclusão social?",
+    "options": [
+      "Exclusão de grupos minoritários",
+      "Garantir a todos acesso igual aos direitos e oportunidades",
+      "Manter as desigualdades sociais",
+      "Ignorar as diferenças entre as pessoas"
+    ],
+    "answer_index": 1
   },
   {
     "id": "easy-016",
     "difficulty": "easy",
-    "prompt": "O que é compostagem?",
-    "options": ["Processamento de alimentos industrializados", "Transformação de resíduos orgânicos em adubo natural", "Descarte de lixo em aterros sanitários", "Incineração de resíduos sólidos"],
+    "prompt": "Qual é um papel importante do setor privado na promoção dos Objetivos de Desenvolvimento Sustentável?",
+    "options": [
+      "Ignorar os princípios de sustentabilidade",
+      "Investir em soluções inovadoras e sustentáveis",
+      "Reduzir os investimentos em práticas sustentáveis",
+      "Promover apenas interesses econômicos imediatos"
+    ],
     "answer_index": 1
+  },
+  {
+    "id": "easy-017",
+    "difficulty": "easy",
+    "prompt": "O que são áreas ambientalmente protegidas?",
+    "options": [
+      "Locais onde a destruição ambiental é incentivada",
+      "Locais onde a biodiversidade é ameaçada",
+      "Locais onde a caça ilegal é permitida",
+      "Locais onde a vida selvagem é protegida e conservada"
+    ],
+    "answer_index": 3
+  },
+  {
+    "id": "easy-018",
+    "difficulty": "easy",
+    "prompt": "O que são espécies ameaçadas de extinção?",
+    "options": [
+      "Espécies que estão em abundância na natureza",
+      "Espécies que não precisam de proteção legal",
+      "Espécies que correm o risco de desaparecer da Terra",
+      "Espécies que não são importantes para os ecossistemas"
+    ],
+    "answer_index": 2
+  },
+  {
+    "id": "easy-019",
+    "difficulty": "easy",
+    "prompt": "O que é inclusão digital?",
+    "options": [
+      "Acesso universal e igualitário às tecnologias digitais",
+      "Exclusão de determinados grupos da sociedade",
+      "Uso restrito das tecnologias digitais por algumas pessoas",
+      "Ignorância em relação às novas tecnologias"
+    ],
+    "answer_index": 0
+  },
+  {
+    "id": "easy-020",
+    "difficulty": "easy",
+    "prompt": "O que é justiça social?",
+    "options": [
+      "Garantia de direitos e oportunidades iguais para todos",
+      "Exclusão de determinados grupos da sociedade",
+      "Manutenção de desigualdades sociais",
+      "Ignorância em relação aos direitos humanos"
+    ],
+    "answer_index": 0
+  },
+  {
+    "id": "easy-021",
+    "difficulty": "easy",
+    "prompt": "O que significa adaptação às mudanças climáticas?",
+    "options": [
+      "Ignorar as mudanças climáticas",
+      "Ajustar as atividades humanas para lidar com os impactos das mudanças climáticas",
+      "Aumentar as emissões de gases de efeito estufa",
+      "Promover o desmatamento"
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-022",
+    "difficulty": "easy",
+    "prompt": "O que são direitos humanos?",
+    "options": [
+      "Privilégios concedidos a determinados grupos",
+      "Restrições impostas a certos indivíduos",
+      "Direitos garantidos a todos, independentemente de raça, gênero, religião, etc.",
+      "Ignorância em relação aos direitos fundamentais"
+    ],
+    "answer_index": 2
+  },
+  {
+    "id": "easy-023",
+    "difficulty": "easy",
+    "prompt": "O que é exclusão digital?",
+    "options": [
+      "Acesso universal e igualitário às tecnologias digitais",
+      "Inclusão de determinados grupos da sociedade",
+      "Restrição do acesso às tecnologias digitais a algumas pessoas",
+      "Uso irrestrito das tecnologias digitais"
+    ],
+    "answer_index": 2
+  },
+  {
+    "id": "easy-024",
+    "difficulty": "easy",
+    "prompt": "O que é uma prática importante para proteger a vida marinha?",
+    "options": [
+      "Descartar lixo plástico no oceano",
+      "Reduzir o uso de plásticos descartáveis",
+      "Aumentar a pesca ilegal",
+      "Utilizar produtos químicos prejudiciais nos mares"
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-025",
+    "difficulty": "easy",
+    "prompt": "Qual das seguintes atitudes ajuda a cuidarmos do nosso planeta evitando o desperdício?",
+    "options": [
+      "Deixar a torneira aberta enquanto escova os dentes.",
+      "Colocar no prato apenas a comida que você realmente vai aguentar comer.",
+      "Jogar papéis e embalagens na rua.",
+      "Comprar roupas novas todo dia, mesmo sem precisar delas."
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-026",
+    "difficulty": "easy",
+    "prompt": "O que significa o termo \"ODS\" na Agenda 2030?",
+    "options": [
+      "Objetivos de Desenvolvimento Sistemático",
+      "Objetivos de Desenvolvimento Sustentável",
+      "Objetivos de Desenvolvimento Social",
+      "Objetivos de Desenvolvimento Sincronizado"
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-027",
+    "difficulty": "easy",
+    "prompt": "Qual é um dos principais objetivos da igualdade de gênero?",
+    "options": [
+      "Garantir que apenas homens tenham acesso à educação",
+      "Promover a igualdade de oportunidades para homens e mulheres",
+      "Aumentar a desigualdade salarial entre homens e mulheres",
+      "Excluir mulheres do mercado de trabalho"
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-028",
+    "difficulty": "easy",
+    "prompt": "O que significa empoderamento feminino?",
+    "options": [
+      "Limitar as oportunidades de trabalho para as mulheres",
+      "Promover apenas a educação para homens",
+      "Reduzir os direitos das mulheres",
+      "Garantir que as mulheres tenham controle sobre suas próprias vidas e decisões"
+    ],
+    "answer_index": 3
+  },
+  {
+    "id": "easy-029",
+    "difficulty": "easy",
+    "prompt": "O que é compostagem?",
+    "options": [
+      "Processamento de alimentos industrializados",
+      "Transformação de resíduos orgânicos em adubo natural",
+      "Descarte de lixo em aterros sanitários",
+      "Incineração de resíduos sólidos"
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-030",
+    "difficulty": "easy",
+    "prompt": "Qual é um dos objetivos principais na redução da pobreza?",
+    "options": [
+      "Aumentar a desigualdade",
+      "Excluir comunidades vulneráveis",
+      "Reduzir o emprego",
+      "Garantir acesso a serviços básicos como educação e saúde"
+    ],
+    "answer_index": 3
+  },
+  {
+    "id": "easy-031",
+    "difficulty": "easy",
+    "prompt": "O que é considerado um indicador de pobreza extrema?",
+    "options": [
+      "Alta renda",
+      "Falta de acesso ao saneamento básico",
+      "Alto nível de escolaridade",
+      "Bom acesso a serviços de saúde"
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-032",
+    "difficulty": "easy",
+    "prompt": "O que é essencial para garantir instituições eficazes e responsáveis?",
+    "options": [
+      "Falta de transparência nas decisões",
+      "Corrupção e abuso de poder",
+      "Transparência, prestação de contas e participação cidadã",
+      "Exclusão de cidadãos do processo de tomada de decisão"
+    ],
+    "answer_index": 2
+  },
+  {
+    "id": "easy-033",
+    "difficulty": "easy",
+    "prompt": "É uma prática importante para melhorar a saúde pública:",
+    "options": [
+      "Poluição do ar",
+      "Desmatamento",
+      "Consumo excessivo de alimentos industrializados",
+      "Ampliação do acesso ao saneamento básico"
+    ],
+    "answer_index": 3
+  },
+  {
+    "id": "easy-034",
+    "difficulty": "easy",
+    "prompt": "O que é bem-estar?",
+    "options": [
+      "Apenas a ausência de doenças",
+      "Ter acesso a luxo",
+      "Estado de saúde física, mental e social completo",
+      "Foco apenas em aspectos físicos da saúde"
+    ],
+    "answer_index": 2
+  },
+  {
+    "id": "easy-035",
+    "difficulty": "easy",
+    "prompt": "Qual é um dos principais benefícios do saneamento básico adequado?",
+    "options": [
+      "Aumento da poluição",
+      "Melhora na saúde pública",
+      "Redução da biodiversidade",
+      "Aumento do desperdício de água"
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-036",
+    "difficulty": "easy",
+    "prompt": "O que significa trabalho decente?",
+    "options": [
+      "Trabalho que não oferece condições seguras",
+      "Trabalho que garante condições justas, seguras e respeitosas para todos os trabalhadores",
+      "Trabalho que paga salários muito baixos",
+      "Trabalho que exclui certos grupos de pessoas"
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-037",
+    "difficulty": "easy",
+    "prompt": "O que pode ajudar a promover o crescimento econômico sustentável?",
+    "options": [
+      "Redução dos investimentos em educação e saúde",
+      "Apoio ao empreendedorismo e à inovação",
+      "Limitação do acesso ao crédito para pequenas empresas",
+      "Aumento das barreiras comerciais entre países"
+    ],
+    "answer_index": 1
+  },
+  {
+    "id": "easy-038",
+    "difficulty": "easy",
+    "prompt": "A educação de qualidade deve ser:",
+    "options": [
+      "Exclusiva para os ricos",
+      "Disponível apenas em áreas urbanas",
+      "Restrita a determinadas etnias",
+      "Acessível a todos, independentemente de classe social"
+    ],
+    "answer_index": 3
+  },
+  {
+    "id": "easy-039",
+    "difficulty": "easy",
+    "prompt": "Qual das seguintes ações contribui diretamente para a promoção da saúde e bem-estar?",
+    "options": [
+      "Redução do acesso a serviços de saúde",
+      "Incentivo ao sedentarismo",
+      "Acesso a serviços de saúde de qualidade e promoção de hábitos saudáveis",
+      "Aumento da poluição do ar"
+    ],
+    "answer_index": 2
+  },
+  {
+    "id": "easy-040",
+    "difficulty": "easy",
+    "prompt": "Qual das seguintes ações é fundamental para fortalecer as parcerias globais e alcançar os Objetivos de Desenvolvimento Sustentável?",
+    "options": [
+      "Cooperação internacional e troca de conhecimentos entre países",
+      "Isolamento econômico dos países em desenvolvimento",
+      "Redução de investimentos em infraestrutura",
+      "Exclusão de países menos desenvolvidos das discussões globais"
+    ],
+    "answer_index": 0
   }
 ]
