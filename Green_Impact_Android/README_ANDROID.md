@@ -77,3 +77,12 @@ A versão 0.3 consulta os `WindowInsets` nativos do Android e reserva automatica
 - alterações de orientação e retorno do aplicativo ao primeiro plano.
 
 A correção é dinâmica e funciona tanto com navegação por três botões quanto por gestos. A janela de configuração do servidor também usa as dimensões úteis da tela.
+
+
+## Melhorias da versão 0.4
+
+- Banner grande para identificar o jogador da vez.
+- Respostas, ajudas e ação Parar em blocos visualmente diferentes.
+- Saldo de carbono e custo das ajudas em destaque.
+- Tela de consequência após acerto, erro, tempo esgotado, pular, parar e sorte/revés.
+- Expiração do tempo controlada também pelo servidor, evitando tela parada.

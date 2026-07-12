@@ -1,0 +1,9 @@
+GREEN IMPACT IOS/MACOS — CORREÇÕES DA ANÁLISE (V0.4)
+
+- Mesma HUD corrigida da versão Android/Kivy.
+- Jogador da vez em destaque.
+- Respostas e ajudas em seções diferentes.
+- Saldo de carbono e custos visíveis.
+- Parar separado e colocado ao final.
+- Consequências claras após acerto, erro, timeout, pular, parar e sorte/revés.
+- Cronômetro corrigido e monitor de timeout no servidor local.

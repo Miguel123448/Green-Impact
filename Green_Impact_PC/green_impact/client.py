@@ -16,7 +16,7 @@ import pygame
 import websockets
 
 from .common import COLOR_LABELS, PLAYER_RGB
-from .rules import track_label
+from .rules import HELP_COST, RESEARCH_BONUS_SECONDS, track_label
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 ASSET_DIR = BASE_DIR / "assets"
@@ -30,6 +30,14 @@ DISABLED = (165, 165, 155)
 WHITE = (255, 255, 255)
 BLACK = (20, 20, 20)
 RED = (180, 40, 40)
+ANSWER_FILL = (248, 250, 245)
+HELP_FILL = (247, 230, 161)
+HELP_CARD = (255, 248, 210)
+WARNING_FILL = (255, 230, 210)
+SUCCESS_FILL = (220, 244, 214)
+ERROR_FILL = (255, 218, 214)
+INFO_FILL = (220, 238, 250)
+SOFT_BORDER = (170, 190, 150)
 
 COLOR_ORDER = ["green", "yellow", "red", "blue"]
 COLOR_NAMES = {"green": "Verde", "yellow": "Amarelo", "red": "Vermelho", "blue": "Azul"}
@@ -129,11 +137,27 @@ def wrap_text(text: str, width: int = 60) -> list[str]:
 
 
 class Button:
-    def __init__(self, rect: pygame.Rect, text: str, callback: Callable[[], None], enabled: bool = True):
+    def __init__(
+        self,
+        rect: pygame.Rect,
+        text: str,
+        callback: Callable[[], None],
+        enabled: bool = True,
+        fill_color: tuple[int, int, int] | None = None,
+        hover_color: tuple[int, int, int] | None = None,
+        border_color: tuple[int, int, int] | None = None,
+        text_color: tuple[int, int, int] | None = None,
+        font: pygame.font.Font | None = None,
+    ):
         self.rect = rect
         self.text = text
         self.callback = callback
         self.enabled = enabled
+        self.fill_color = fill_color
+        self.hover_color = hover_color
+        self.border_color = border_color
+        self.text_color = text_color
+        self.font = font
 
     def draw(self, screen: pygame.Surface, font: pygame.font.Font, small: bool = False) -> None:
         mouse = pygame.mouse.get_pos()
@@ -142,18 +166,22 @@ class Button:
             fill = (200, 205, 188)
             border = DISABLED
             color = (120, 120, 120)
-        elif hover:
-            fill = (226, 238, 203)
-            border = DARK
-            color = DARK
         else:
-            fill = (239, 245, 218)
-            border = DARK
-            color = DARK
+            fill = self.hover_color if hover and self.hover_color else (self.fill_color or ((226, 238, 203) if hover else (239, 245, 218)))
+            border = self.border_color or DARK
+            color = self.text_color or DARK
         pygame.draw.rect(screen, fill, self.rect, border_radius=12)
         pygame.draw.rect(screen, border, self.rect, width=2, border_radius=12)
-        label = font.render(self.text, True, color)
-        screen.blit(label, label.get_rect(center=self.rect.center))
+
+        draw_font = self.font or font
+        lines = str(self.text).split("\n")
+        rendered = [draw_font.render(line, True, color) for line in lines]
+        line_gap = 2
+        total_h = sum(surface.get_height() for surface in rendered) + line_gap * max(0, len(rendered) - 1)
+        y = self.rect.centery - total_h // 2
+        for surface in rendered:
+            screen.blit(surface, surface.get_rect(centerx=self.rect.centerx, y=y))
+            y += surface.get_height() + line_gap
 
     def click(self) -> None:
         if self.enabled:
@@ -279,6 +307,9 @@ class GreenImpactClient:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("arial", 22)
         self.font_small = pygame.font.SysFont("arial", 18)
+        self.font_tiny = pygame.font.SysFont("arial", 15)
+        self.font_button_small = pygame.font.SysFont("arial", 16)
+        self.font_turn = pygame.font.SysFont("arial", 27, bold=True)
         self.font_big = pygame.font.SysFont("arial", 34, bold=True)
         self.font_title = pygame.font.SysFont("arial", 44, bold=True)
 
@@ -375,8 +406,16 @@ class GreenImpactClient:
 
                 async def runner() -> None:
                     local_server.QUESTIONS = local_server.load_questions()
-                    async with websockets.serve(local_server.handler, "0.0.0.0", port):
-                        await asyncio.Future()
+                    monitor_task = asyncio.create_task(local_server.deadline_monitor())
+                    try:
+                        async with websockets.serve(local_server.handler, "0.0.0.0", port):
+                            await asyncio.Future()
+                    finally:
+                        monitor_task.cancel()
+                        try:
+                            await monitor_task
+                        except asyncio.CancelledError:
+                            pass
 
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
@@ -455,7 +494,11 @@ class GreenImpactClient:
                     self.you = data.get("you") or self.you
                     if data.get("server_ts"):
                         self.server_delta = float(data["server_ts"]) - time.time()
-                    self.state = data.get("room")
+                    old_question = (self.state or {}).get("current_question") or {}
+                    self.state = data.get("room") or {}
+                    new_question = self.state.get("current_question") or {}
+                    if old_question.get("id") != new_question.get("id"):
+                        self.timeout_sent_for_question = None
                     if self.state:
                         self.room_code = self.state.get("code") or self.room_code
                 elif msg_type == "error":
@@ -579,8 +622,23 @@ class GreenImpactClient:
             y += line_h
         return y
 
-    def add_button(self, rect: pygame.Rect, text: str, callback: Callable[[], None], enabled: bool = True) -> None:
-        btn = Button(rect, text, callback, enabled)
+    def add_button(
+        self,
+        rect: pygame.Rect,
+        text: str,
+        callback: Callable[[], None],
+        enabled: bool = True,
+        fill_color: tuple[int, int, int] | None = None,
+        hover_color: tuple[int, int, int] | None = None,
+        border_color: tuple[int, int, int] | None = None,
+        text_color: tuple[int, int, int] | None = None,
+        font: pygame.font.Font | None = None,
+    ) -> None:
+        btn = Button(
+            rect, text, callback, enabled,
+            fill_color=fill_color, hover_color=hover_color,
+            border_color=border_color, text_color=text_color, font=font,
+        )
         self.buttons.append(btn)
         btn.draw(self.screen, self.font_small)
 
@@ -1005,6 +1063,173 @@ class GreenImpactClient:
                 label = self.font_small.render(initial, True, WHITE)
                 self.screen.blit(label, label.get_rect(center=(x, y)))
 
+    def remaining_seconds(self) -> int:
+        if not self.state or not self.state.get("current_question") or not self.state.get("deadline_ts"):
+            return 0
+        # Arredondar para cima impede o HUD de mostrar 0 antes do prazo real.
+        return max(0, math.ceil(float(self.state["deadline_ts"]) - (time.time() + self.server_delta)))
+
+    def draw_card(self, rect: pygame.Rect, fill: tuple[int, int, int], border: tuple[int, int, int] = DARK, width: int = 2, radius: int = 12) -> None:
+        pygame.draw.rect(self.screen, fill, rect, border_radius=radius)
+        pygame.draw.rect(self.screen, border, rect, width=width, border_radius=radius)
+
+    def draw_centered(self, text: str, rect: pygame.Rect, font: pygame.font.Font, color: tuple[int, int, int] = TEXT) -> None:
+        surface = font.render(str(text), True, color)
+        self.screen.blit(surface, surface.get_rect(center=rect.center))
+
+    def draw_turn_banner(self, x: int, y: int, width: int, cp: dict[str, Any] | None, my_turn: bool, compact: bool = False) -> int:
+        height = 52 if compact else 58
+        rect = pygame.Rect(x, y, width, height)
+        self.draw_card(rect, (226, 240, 205), DARK, 2, 12)
+        if not cp:
+            self.draw_centered("Aguardando próximo jogador", rect, self.font_turn if not compact else self.font, DARK)
+            return y + height + 7
+        phase = (self.state or {}).get("turn_phase")
+        if phase in {"turn_result", "luck_result"}:
+            heading = f"RESULTADO DE {cp.get('name')}"
+        elif my_turn and not (self.state or {}).get("local_multiplayer"):
+            heading = f"SUA VEZ: {cp.get('name')}"
+        else:
+            heading = f"VEZ DE {cp.get('name')}"
+        heading_font = self.font_turn if not compact else self.font
+        heading_surface = heading_font.render(heading, True, DARK)
+        self.screen.blit(heading_surface, heading_surface.get_rect(centerx=rect.centerx, y=rect.y + 5))
+        details = f"casa {track_label(int(cp.get('position', 0)), (self.state or {}).get('game_mode', 'dice_board'))} | saldo: {cp.get('credits')} créditos"
+        detail_surface = self.font_tiny.render(details, True, TEXT)
+        self.screen.blit(detail_surface, detail_surface.get_rect(centerx=rect.centerx, bottom=rect.bottom - 5))
+        return y + height + 7
+
+    def draw_balance_card(self, x: int, y: int, width: int, cp: dict[str, Any] | None, compact: bool = False) -> int:
+        height = 42 if compact else 48
+        rect = pygame.Rect(x, y, width, height)
+        self.draw_card(rect, (232, 244, 213), DARK, 2, 10)
+        saldo = int((cp or {}).get("credits", 0))
+        cost_color = DARK if saldo >= HELP_COST else RED
+        cost = self.font_tiny.render(f"Cada ajuda custa {HELP_COST} créditos", True, cost_color)
+        if compact:
+            balance = self.font_button_small.render(f"SALDO DE CARBONO: {saldo} créditos", True, DARK)
+            self.screen.blit(balance, (rect.x + 10, rect.y + 10))
+        else:
+            title = self.font_button_small.render("SALDO DE CARBONO", True, DARK)
+            value = self.font.render(f"{saldo} créditos", True, DARK)
+            self.screen.blit(title, (rect.x + 12, rect.y + 5))
+            self.screen.blit(value, (rect.x + 190, rect.y + 3))
+        self.screen.blit(cost, (rect.right - cost.get_width() - 10, rect.y + 12))
+        return y + height + 6
+
+    def draw_help_section(self, x: int, y: int, width: int, cp: dict[str, Any] | None, my_turn: bool, compact: bool = False) -> int:
+        saldo = int((cp or {}).get("credits", 0))
+        help_used = bool((self.state or {}).get("help_used_this_turn"))
+        disabled = (not my_turn) or help_used or saldo < HELP_COST
+        header_h = 27 if compact else 31
+        btn_h = 32 if compact else 36
+        gap = 6
+        section_h = header_h + btn_h * 2 + gap * 3
+        rect = pygame.Rect(x, y, width, section_h)
+        self.draw_card(rect, HELP_CARD, (165, 120, 20), 2, 11)
+        status = f"AJUDAS — custo {HELP_COST} cada; não são respostas"
+        if help_used:
+            status += " | já usada"
+        elif saldo < HELP_COST:
+            status += " | saldo insuficiente"
+        self.draw_text(status, (x + 10, y + 5), self.font_tiny if compact else self.font_button_small, RED if disabled else DARK)
+        col_gap = 7
+        btn_w = (width - 20 - col_gap) // 2
+        labels = [
+            (f"Eliminar 2 respostas\nCusto: {HELP_COST}", {"type": "help", "help": "eliminate2"}),
+            (f"Pesquisa +{RESEARCH_BONUS_SECONDS}s\nCusto: {HELP_COST}", {"type": "help", "help": "research"}),
+            (f"Dica do especialista\nCusto: {HELP_COST}", {"type": "help", "help": "expert"}),
+            (f"Pular pergunta\nCusto: {HELP_COST}", {"type": "help", "help": "skip"}),
+        ]
+        start_y = y + header_h
+        for i, (label, payload) in enumerate(labels):
+            bx = x + 7 + (i % 2) * (btn_w + col_gap)
+            by = start_y + (i // 2) * (btn_h + gap)
+            self.add_button(
+                pygame.Rect(bx, by, btn_w, btn_h), label,
+                lambda p=payload: self.fire_and_forget(p),
+                enabled=not disabled,
+                fill_color=HELP_FILL,
+                hover_color=(252, 237, 174),
+                border_color=(145, 105, 20),
+                font=self.font_tiny,
+            )
+        return y + section_h + 6
+
+    def draw_stop_section(self, x: int, y: int, width: int, my_turn: bool, compact: bool = False) -> int:
+        height = 40 if compact else 44
+        rect = pygame.Rect(x, y, width, height)
+        self.draw_card(rect, WARNING_FILL, RED, 2, 10)
+        self.draw_text("PARAR NÃO É AJUDA", (x + 10, y + 3), self.font_tiny, RED)
+        self.draw_text("Metade do saldo; sai das próximas rodadas", (x + 10, y + 20), self.font_tiny, TEXT)
+        btn_w = 190 if width > 520 else 162
+        self.add_button(
+            pygame.Rect(rect.right - btn_w - 6, rect.y + 5, btn_w, rect.h - 10),
+            "Parar de jogar", lambda: self.fire_and_forget({"type": "stop"}),
+            enabled=my_turn, fill_color=ERROR_FILL, hover_color=(255, 226, 220),
+            border_color=RED, text_color=RED, font=self.font_button_small,
+        )
+        return y + height + 4
+
+    def draw_consequence(self, x: int, y: int, width: int, bottom: int, cp: dict[str, Any] | None, my_turn: bool, compact: bool = False) -> None:
+        result = dict((self.state or {}).get("turn_result") or {})
+        kind = str(result.get("kind") or "result")
+        styles = {
+            "correct": (SUCCESS_FILL, DARK, "RESPOSTA CORRETA"),
+            "incorrect": (ERROR_FILL, RED, "RESPOSTA INCORRETA"),
+            "timeout": (ERROR_FILL, RED, "TEMPO ESGOTADO"),
+            "skipped": (INFO_FILL, DARK, "PERGUNTA PULADA"),
+            "stopped": (WARNING_FILL, RED, "JOGADOR PAROU"),
+            "luck_gain": (SUCCESS_FILL, DARK, "CONSEQUÊNCIA DA CASA"),
+            "luck_loss": (WARNING_FILL, RED, "CONSEQUÊNCIA DA CASA"),
+        }
+        fill, accent, fallback = styles.get(kind, (INFO_FILL, DARK, "CONSEQUÊNCIA"))
+        height = max(250, bottom - y - 58)
+        rect = pygame.Rect(x, y, width, height)
+        self.draw_card(rect, fill, accent, 3, 14)
+        title = str(result.get("title") or fallback)
+        self.draw_centered("CONSEQUÊNCIA", pygame.Rect(x, y + 8, width, 24), self.font_button_small, accent)
+        self.draw_centered(title.upper(), pygame.Rect(x, y + 34, width, 38), self.font_turn if not compact else self.font, accent)
+        cursor = y + 79
+        message = str(result.get("message") or (self.state or {}).get("special_event") or "Rodada concluída.")
+        cursor = self.draw_wrapped(message, x + 16, cursor, 72 if width > 550 else 48, self.font_small if not compact else self.font_tiny, TEXT, 20 if not compact else 18)
+        old_credits, new_credits = result.get("old_credits"), result.get("new_credits")
+        if old_credits is not None and new_credits is not None:
+            delta = int(result.get("credit_delta") or 0)
+            delta_txt = f"+{delta}" if delta > 0 else str(delta)
+            self.draw_text(f"Saldo de carbono: {old_credits} → {new_credits} créditos ({delta_txt})", (x + 16, cursor + 4), self.font if not compact else self.font_small, DARK)
+            cursor += 31
+        old_pos, new_pos = result.get("old_position_label"), result.get("new_position_label")
+        if old_pos and new_pos and old_pos != new_pos:
+            self.draw_text(f"Posição: {old_pos} → {new_pos}", (x + 16, cursor), self.font_small, DARK)
+            cursor += 27
+        correct = str(result.get("correct_answer") or "").strip()
+        if correct:
+            cursor = self.draw_wrapped(f"Resposta correta: {correct}", x + 16, cursor, 70 if width > 550 else 47, self.font_small, DARK, 20)
+        if result.get("eliminated"):
+            self.draw_text("O jogador foi eliminado.", (x + 16, cursor + 2), self.font_small, RED)
+        elif result.get("stopped"):
+            self.draw_text("O jogador não participa das próximas rodadas.", (x + 16, cursor + 2), self.font_small, RED)
+        self.add_button(
+            pygame.Rect(x + 14, rect.bottom - 50, min(270, width - 28), 40),
+            "Próximo jogador" if kind not in {"luck_gain", "luck_loss"} else "Continuar",
+            lambda: self.fire_and_forget({"type": "continue"}),
+            enabled=my_turn, fill_color=(232, 244, 213), font=self.font_button_small,
+        )
+
+    def draw_mini_event_log(self, x: int, y: int, width: int, compact: bool = False) -> int:
+        events = list((self.state or {}).get("event_log") or [])[-1:]
+        height = 44 if compact else 48
+        rect = pygame.Rect(x, y, width, height)
+        self.draw_card(rect, (239, 245, 218), SOFT_BORDER, 1, 9)
+        self.draw_text("Histórico", (x + 8, y + 3), self.font_tiny, DARK)
+        if events:
+            line = "• " + str(events[-1])
+            max_chars = 78 if width > 550 else 49
+            shown = line if len(line) <= max_chars else line[: max_chars - 1] + "…"
+            self.draw_text(shown, (x + 8, y + 22), self.font_tiny, TEXT)
+        return y + height + 5
+
     def draw_players_panel(self, x: int, y: int) -> int:
         if not self.state:
             return y
@@ -1040,12 +1265,12 @@ class GreenImpactClient:
         if not self.state:
             return y
 
-        self.draw_text("Jogadores", (x, y), self.font, DARK)
-        y += 28
+        self.draw_text("Jogadores", (x, y), self.font_tiny, DARK)
+        y += 20
         current_id = self.state.get("current_player_id")
         players = list(self.state.get("players", []))
         col_w = max_width // 2
-        row_h = 24
+        row_h = 20
 
         for idx, p in enumerate(players):
             col = idx % 2
@@ -1062,12 +1287,14 @@ class GreenImpactClient:
                 status = " parou"
             elif not p.get("connected", True):
                 status = " off"
-            pygame.draw.circle(self.screen, rgb, (px + 10, py + 11), 9)
+            pygame.draw.circle(self.screen, rgb, (px + 9, py + 9), 7)
             line = f"{prefix}{p.get('name')} | casa {track_label(int(p.get('position', 0)), self.state.get('game_mode', 'dice_board') if self.state else 'dice_board')} | {p.get('credits')} cr.{status}"
-            self.draw_text(line[:42], (px + 26, py), self.font_small, TEXT)
+            max_chars = 44 if col_w >= 300 else 27
+            shown = line if len(line) <= max_chars else line[: max_chars - 1] + "…"
+            self.draw_text(shown, (px + 21, py), self.font_tiny, TEXT)
 
         rows = max(1, math.ceil(len(players) / 2))
-        return y + rows * row_h + 8
+        return y + rows * row_h + 5
 
     def draw_lobby(self) -> None:
         right = pygame.Rect(535, 20, 720, 682)
@@ -1117,177 +1344,30 @@ class GreenImpactClient:
             self.draw_game_dice_board()
             return
         right = pygame.Rect(535, 20, 720, 682)
-        pygame.draw.rect(self.screen, PANEL, right, border_radius=18)
-        pygame.draw.rect(self.screen, DARK, right, width=2, border_radius=18)
-        x, y = right.x + 24, right.y + 18
+        self.draw_card(right, PANEL, DARK, 2, 18)
+        x, y = right.x + 20, right.y + 14
+        content_w = right.w - 40
         self.draw_text(f"Sala {self.room_code}", (x, y), self.font_big, DARK)
-        self.add_button(pygame.Rect(right.right - 170, y, 64, 32), "Menu", lambda: asyncio.create_task(self.back_to_menu()), enabled=True)
-        self.add_button(pygame.Rect(right.right - 98, y, 76, 32), "Regras", lambda: asyncio.create_task(self.open_rules_from_game()), enabled=True)
-        y += 38
-        y = self.draw_players_compact_panel(x, y)
-
-        if not self.state:
-            return
-        q = self.state.get("current_question")
-        cp = self.current_player()
-        my_turn = self.is_my_turn()
-
-        # Áreas fixas do painel. Assim a pergunta, os botões e o histórico
-        # nunca disputam o mesmo espaço, mesmo com 4 jogadores.
-        content_w = 705
-        log_top = right.bottom - 92
-        button_y = log_top - 48
-
-        if cp:
-            self.draw_text(f"Vez: {cp.get('name')}", (x, y), self.font_small, DARK)
-        else:
-            self.draw_text("Aguardando próxima jogada...", (x, y), self.font_small, DARK)
-        y += 26
-
-        remaining = None
-        if self.state.get("deadline_ts"):
-            remaining = max(0, int(float(self.state["deadline_ts"]) - (time.time() + self.server_delta)))
-            self.draw_text(f"Tempo: {remaining}s", (x, y), self.font_big, RED if remaining <= 10 else DARK)
-            y += 38
-
-        if q:
-            qid = str(q.get("id"))
-            if my_turn and remaining == 0 and self.timeout_sent_for_question != qid:
-                self.timeout_sent_for_question = qid
-                self.fire_and_forget({"type": "timeout"})
-            elif remaining and remaining > 0:
-                self.timeout_sent_for_question = None
-
-            diff = q.get("difficulty", "")
-            diff_label = {"easy": "Fácil / Verde", "medium": "Médio / Amarelo", "hard": "Difícil / Vermelho"}.get(diff, diff)
-            self.draw_text(f"Pergunta: {diff_label}", (x, y), self.font_small, DARK)
-            y += 24
-
-            # Alturas compactas para caber tudo sem sobreposição.
-            question_h = 92
-            option_h = 36
-            option_gap = 8
-            question_rect = pygame.Rect(x, y, content_w, question_h)
-            pygame.draw.rect(self.screen, WHITE, question_rect, border_radius=12)
-            pygame.draw.rect(self.screen, (190, 204, 170), question_rect, width=2, border_radius=12)
-            self.draw_wrapped(q.get("prompt", ""), x + 14, y + 12, 74, self.font_small, TEXT, 20)
-            y += question_h + 16
-
-            eliminated = set(q.get("eliminated_options") or [])
-            letters = ["A", "B", "C", "D"]
-            options = q.get("options") or []
-            for idx, option in enumerate(options):
-                oy = y + idx * (option_h + option_gap)
-                disabled = idx in eliminated or not my_turn
-                text = f"{letters[idx]}) {option}"
-                self.add_button(
-                    pygame.Rect(x, oy, content_w, option_h),
-                    text[:92],
-                    lambda i=idx: self.fire_and_forget({"type": "answer", "answer_index": i}),
-                    enabled=not disabled,
-                )
-
-            if cp:
-                self.draw_text(f"Créditos: {cp.get('credits')} | Ajudas custam 3 créditos", (x, button_y - 24), self.font_small, DARK)
-            # Os botões de ação ficam acima do histórico reservado no rodapé. Parar fica separado das ajudas.
-            self.add_button(pygame.Rect(x, button_y, 120, 38), "Parar", lambda: self.fire_and_forget({"type": "stop"}), enabled=my_turn)
-            self.add_button(pygame.Rect(x + 130, button_y, 150, 38), "Eliminar 2", lambda: self.fire_and_forget({"type": "help", "help": "eliminate2"}), enabled=my_turn and not self.state.get("help_used_this_turn"))
-            self.add_button(pygame.Rect(x + 290, button_y, 150, 38), "Pesquisa", lambda: self.fire_and_forget({"type": "help", "help": "research"}), enabled=my_turn and not self.state.get("help_used_this_turn"))
-            self.add_button(pygame.Rect(x + 450, button_y, 120, 38), "Especialista", lambda: self.fire_and_forget({"type": "help", "help": "expert"}), enabled=my_turn and not self.state.get("help_used_this_turn"))
-            self.add_button(pygame.Rect(x + 580, button_y, 125, 38), "Pular", lambda: self.fire_and_forget({"type": "help", "help": "skip"}), enabled=my_turn and not self.state.get("help_used_this_turn"))
-        else:
-            turn_phase = self.state.get("turn_phase")
-            pending_diff = self.state.get("pending_question_difficulty")
-            diff_label = {"easy": "Fácil / Verde", "medium": "Médio / Amarelo", "hard": "Difícil / Vermelho"}.get(pending_diff, pending_diff or "")
-
-            if turn_phase == "awaiting_roll" and cp:
-                self.draw_text("Jogar dado", (x, y), self.font_big, DARK)
-                y += 44
-                self.draw_wrapped(
-                    f"{cp.get('name')} está em {track_label(int(cp.get('position', 0)), self.state.get('game_mode', 'dice_board') if self.state else 'dice_board')}. Clique para jogar o dado e avançar no novo tabuleiro.",
-                    x, y, 72, self.font_small, TEXT, 24,
-                )
-                y += 72
-                dice_rect = pygame.Rect(x, y, 110, 92)
-                pygame.draw.rect(self.screen, WHITE, dice_rect, border_radius=18)
-                pygame.draw.rect(self.screen, DARK, dice_rect, width=3, border_radius=18)
-                dice_label = self.font_title.render(str(self.dice_value if self.dice_animating else "?"), True, DARK)
-                self.screen.blit(dice_label, dice_label.get_rect(center=dice_rect.center))
-                self.add_button(pygame.Rect(x + 132, y + 20, 260, 52), "Rolando..." if self.dice_animating else "Jogar dado", self.start_dice_animation, enabled=my_turn and not self.dice_animating)
-            elif turn_phase == "turn_result" and cp:
-                self.draw_text("Resultado da rodada", (x, y), self.font_big, DARK)
-                y += 48
-                self.draw_wrapped(self.state.get("special_event") or "Rodada concluída.", x, y, 72, self.font_small, TEXT, 24)
-                y += 90
-                self.add_button(pygame.Rect(x, y, 260, 52), "Próximo jogador", lambda: self.fire_and_forget({"type": "continue"}), enabled=my_turn)
-            elif turn_phase == "luck_result" and cp:
-                self.draw_text("Casa de sorte/revés", (x, y), self.font_big, DARK)
-                y += 48
-                self.draw_wrapped(self.state.get("special_event") or "Evento especial aplicado.", x, y, 72, self.font_small, TEXT, 24)
-                y += 80
-                self.add_button(pygame.Rect(x, y, 260, 52), "Continuar", lambda: self.fire_and_forget({"type": "continue"}), enabled=my_turn)
-            elif turn_phase == "awaiting_question" and cp:
-                self.draw_text(f"Vez de {cp.get('name')}", (x, y), self.font_big, DARK)
-                y += 48
-                roll_text = f" Dado: {self.state.get('last_roll')}." if self.state.get("last_roll") else ""
-                self.draw_wrapped(
-                    f"{cp.get('name')} está em {track_label(int(cp.get('position', 0)), self.state.get('game_mode', 'dice_board') if self.state else 'dice_board')}.{roll_text} A pergunta será {diff_label}. Clique em iniciar quando o jogador estiver pronto.",
-                    x,
-                    y,
-                    72,
-                    self.font_small,
-                    TEXT,
-                    24,
-                )
-                y += 96
-                self.add_button(
-                    pygame.Rect(x, y, 260, 48),
-                    "Iniciar pergunta",
-                    lambda: self.fire_and_forget({"type": "begin_question"}),
-                    enabled=my_turn,
-                )
-                if not my_turn:
-                    self.draw_wrapped("Aguardando o jogador da vez iniciar a pergunta.", x + 280, y + 8, 48, self.font_small, TEXT, 22)
-            else:
-                self.draw_wrapped("Aguardando o servidor preparar a próxima rodada...", x, y, 70, self.font_small)
-
-        self.draw_event_log(535, 20, 720, 682)
-
-
-    def draw_game_dice_board(self) -> None:
-        """HUD próprio para o tabuleiro novo, que é horizontal e usa dado."""
-        right = pygame.Rect(760, 20, 500, 682)
-        pygame.draw.rect(self.screen, PANEL, right, border_radius=18)
-        pygame.draw.rect(self.screen, DARK, right, width=2, border_radius=18)
-        x, y = right.x + 22, right.y + 18
-        content_w = right.w - 44
-
-        self.draw_text(f"Sala {self.room_code}", (x, y), self.font_big, DARK)
-        self.add_button(pygame.Rect(right.right - 170, y, 64, 32), "Menu", lambda: asyncio.create_task(self.back_to_menu()), enabled=True)
-        self.add_button(pygame.Rect(right.right - 98, y, 76, 32), "Regras", lambda: asyncio.create_task(self.open_rules_from_game()), enabled=True)
+        self.add_button(pygame.Rect(right.right - 170, y, 64, 32), "Menu", lambda: asyncio.create_task(self.back_to_menu()))
+        self.add_button(pygame.Rect(right.right - 98, y, 76, 32), "Regras", lambda: asyncio.create_task(self.open_rules_from_game()))
         y += 38
         y = self.draw_players_compact_panel(x, y, max_width=content_w)
-
         if not self.state:
             return
         q = self.state.get("current_question")
         cp = self.current_player()
         my_turn = self.is_my_turn()
         phase = self.state.get("turn_phase")
-        log_h = 92
-        log_y = right.bottom - log_h - 12
-        action_bottom = log_y - 10
+        y = self.draw_turn_banner(x, y, content_w, cp, my_turn, compact=False)
 
-        if cp:
-            self.draw_text(f"Vez: {cp.get('name')}  |  Casa: {track_label(int(cp.get('position', 0)), self.state.get('game_mode', 'dice_board'))}", (x, y), self.font_small, DARK)
-        else:
-            self.draw_text("Aguardando próxima jogada...", (x, y), self.font_small, DARK)
-        y += 28
+        if phase in {"turn_result", "luck_result"}:
+            self.draw_consequence(x, y, content_w, right.bottom - 10, cp, my_turn, compact=False)
+            return
 
         if q:
-            remaining = max(0, int(float(self.state.get("deadline_ts") or 0) - (time.time() + self.server_delta))) if self.state.get("deadline_ts") else 0
+            remaining = self.remaining_seconds()
             qid = str(q.get("id"))
-            if my_turn and remaining == 0 and self.timeout_sent_for_question != qid:
+            if my_turn and remaining <= 0 and self.timeout_sent_for_question != qid:
                 self.timeout_sent_for_question = qid
                 self.fire_and_forget({"type": "timeout"})
             elif remaining > 0:
@@ -1295,78 +1375,143 @@ class GreenImpactClient:
             diff = q.get("difficulty", "")
             diff_label = {"easy": "Fácil / Verde", "medium": "Médio / Amarelo", "hard": "Difícil / Vermelho"}.get(diff, diff)
             self.draw_text(f"Tempo: {remaining}s", (x, y), self.font_big, RED if remaining <= 10 else DARK)
-            self.draw_text(f"Pergunta: {diff_label}", (x + 190, y + 8), self.font_small, DARK)
-            y += 44
+            self.draw_text(f"Pergunta: {diff_label}", (x + 210, y + 8), self.font_small, DARK)
+            y += 38
 
-            question_rect = pygame.Rect(x, y, content_w, 86)
-            pygame.draw.rect(self.screen, WHITE, question_rect, border_radius=12)
-            pygame.draw.rect(self.screen, (190, 204, 170), question_rect, width=2, border_radius=12)
-            self.draw_wrapped(q.get("prompt", ""), x + 12, y + 10, 52, self.font_small, TEXT, 19)
-            y += 96
-
+            question_rect = pygame.Rect(x, y, content_w, 58)
+            self.draw_card(question_rect, ANSWER_FILL, SOFT_BORDER, 2, 10)
+            self.draw_wrapped(q.get("prompt", ""), x + 12, y + 7, 86, self.font_tiny, TEXT, 17)
+            y += 64
             eliminated = set(q.get("eliminated_options") or [])
             letters = ["A", "B", "C", "D"]
-            for idx, option in enumerate(q.get("options") or []):
-                oy = y + idx * 40
-                disabled = idx in eliminated or not my_turn
-                self.add_button(pygame.Rect(x, oy, content_w, 34), f"{letters[idx]}) {option}"[:66], lambda i=idx: self.fire_and_forget({"type": "answer", "answer_index": i}), enabled=not disabled)
-            y += 172
+            options = list(q.get("options") or [])
+            option_h = 27
+            for idx, option in enumerate(options):
+                self.add_button(
+                    pygame.Rect(x, y + idx * 31, content_w, option_h),
+                    f"{letters[idx]}) {option}"[:96],
+                    lambda i=idx: self.fire_and_forget({"type": "answer", "answer_index": i}),
+                    enabled=my_turn and idx not in eliminated,
+                    fill_color=ANSWER_FILL, hover_color=(234, 244, 226),
+                    border_color=SOFT_BORDER, font=self.font_tiny,
+                )
+            y += len(options) * 31 + 2
+            y = self.draw_balance_card(x, y, content_w, cp, compact=True)
+            y = self.draw_help_section(x, y, content_w, cp, my_turn, compact=True)
+            y = self.draw_mini_event_log(x, y, content_w, compact=True)
+            self.draw_stop_section(x, y, content_w, my_turn, compact=True)
+            return
 
-            if cp:
-                self.draw_text(f"Créditos de {cp.get('name')}: {cp.get('credits')} | Ajudas custam 3", (x, y - 4), self.font_small, DARK)
-
-            # Ações em duas linhas, acima do histórico. Parar fica separado das ajudas.
-            btn_w = (content_w - 14) // 2
-            ay = min(y + 4, action_bottom - 84)
-            actions = [
-                ("Parar", {"type": "stop"}),
-                ("Eliminar 2", {"type": "help", "help": "eliminate2"}),
-                ("Pesquisa", {"type": "help", "help": "research"}),
-                ("Especialista", {"type": "help", "help": "expert"}),
-                ("Pular", {"type": "help", "help": "skip"}),
-            ]
-            for i, (label, payload) in enumerate(actions):
-                bx = x + (i % 2) * (btn_w + 14)
-                by = ay + (i // 2) * 42
-                enabled = my_turn and (label in {"Parar", "Pular"} or not self.state.get("help_used_this_turn"))
-                self.add_button(pygame.Rect(bx, by, btn_w, 34), label, lambda p=payload: self.fire_and_forget(p), enabled=enabled)
+        pending = self.state.get("pending_question_difficulty")
+        diff_label = {"easy": "Fácil / Verde", "medium": "Médio / Amarelo", "hard": "Difícil / Vermelho"}.get(pending, pending or "")
+        box = pygame.Rect(x, y, content_w, right.bottom - y - 72)
+        self.draw_card(box, (239, 245, 218), SOFT_BORDER, 1, 13)
+        bx, by = box.x + 16, box.y + 14
+        if phase == "awaiting_roll" and cp:
+            self.draw_centered("JOGAR DADO", pygame.Rect(bx, by, box.w - 32, 36), self.font_big, DARK)
+            by += 43
+            by = self.draw_wrapped(f"{cp.get('name')} está em {track_label(int(cp.get('position', 0)), self.state.get('game_mode', 'dice_board'))}. Jogue o dado para avançar.", bx, by, 70, self.font_small, TEXT, 22)
+            dice_rect = pygame.Rect(bx, by + 8, 110, 86)
+            self.draw_card(dice_rect, WHITE, DARK, 3, 17)
+            self.draw_centered(str(self.dice_value if self.dice_animating else "?"), dice_rect, self.font_title, DARK)
+            status = "Resultado exibido" if self.dice_revealing else ("Rolando..." if self.dice_animating else "Jogar dado")
+            self.add_button(pygame.Rect(bx + 132, by + 25, 270, 48), status, self.start_dice_animation, enabled=my_turn and not self.dice_animating, font=self.font)
+        elif phase == "awaiting_question" and cp:
+            self.draw_centered("PRONTO PARA A PERGUNTA", pygame.Rect(bx, by, box.w - 32, 40), self.font_big, DARK)
+            by += 50
+            roll = f" Dado: {self.state.get('last_roll')}." if self.state.get("last_roll") else ""
+            by = self.draw_wrapped(f"{cp.get('name')} está na casa {track_label(int(cp.get('position', 0)), self.state.get('game_mode', 'dice_board'))}.{roll} Nível: {diff_label}.", bx, by, 68, self.font, TEXT, 25)
+            by += 8
+            self.draw_text("O cronômetro começa somente ao iniciar a pergunta.", (bx, by), self.font_small, TEXT)
+            by += 37
+            self.add_button(pygame.Rect(bx, by, 280, 52), "Iniciar pergunta", lambda: self.fire_and_forget({"type": "begin_question"}), enabled=my_turn, font=self.font)
         else:
-            pending = self.state.get("pending_question_difficulty")
-            diff_label = {"easy": "Fácil / Verde", "medium": "Médio / Amarelo", "hard": "Difícil / Vermelho"}.get(pending, pending or "")
-            box_rect = pygame.Rect(x, y, content_w, max(170, action_bottom - y - 8))
-            pygame.draw.rect(self.screen, (239, 245, 218), box_rect, border_radius=14)
-            pygame.draw.rect(self.screen, (170, 190, 150), box_rect, width=1, border_radius=14)
-            bx, by = box_rect.x + 18, box_rect.y + 16
-            if phase == "awaiting_roll" and cp:
-                self.draw_text("Jogar dado", (bx, by), self.font_big, DARK); by += 42
-                self.draw_wrapped(f"{cp.get('name')} está em {track_label(int(cp.get('position', 0)), self.state.get('game_mode', 'dice_board'))}. Role o dado para avançar no tabuleiro novo.", bx, by, 46, self.font_small, TEXT, 22)
-                by += 64
-                dice_rect = pygame.Rect(bx, by, 110, 90)
-                pygame.draw.rect(self.screen, WHITE, dice_rect, border_radius=18)
-                pygame.draw.rect(self.screen, DARK, dice_rect, width=3, border_radius=18)
-                dice_text = str(self.dice_value) if self.dice_animating else "?"
-                self.screen.blit(self.font_title.render(dice_text, True, DARK), self.font_title.render(dice_text, True, DARK).get_rect(center=dice_rect.center))
-                status = "Resultado na tela..." if self.dice_revealing else ("Rolando..." if self.dice_animating else "Jogar dado")
-                self.add_button(pygame.Rect(bx + 132, by + 18, 250, 52), status, self.start_dice_animation, enabled=my_turn and not self.dice_animating)
-                if self.dice_revealing:
-                    self.draw_text("O peão vai andar em 1 segundo.", (bx + 132, by + 74), self.font_small, TEXT)
-            elif phase == "turn_result" and cp:
-                self.draw_text("Resultado da rodada", (bx, by), self.font_big, DARK); by += 48
-                self.draw_wrapped(self.state.get("special_event") or "Rodada concluída.", bx, by, 50, self.font_small, TEXT, 24); by += 100
-                self.add_button(pygame.Rect(bx, by, 260, 48), "Próximo jogador", lambda: self.fire_and_forget({"type": "continue"}), enabled=my_turn)
-            elif phase == "luck_result" and cp:
-                self.draw_text("Casa de sorte/revés", (bx, by), self.font_big, DARK); by += 48
-                self.draw_wrapped(self.state.get("special_event") or "Evento especial aplicado.", bx, by, 50, self.font_small, TEXT, 24); by += 88
-                self.add_button(pygame.Rect(bx, by, 260, 48), "Continuar", lambda: self.fire_and_forget({"type": "continue"}), enabled=my_turn)
-            elif phase == "awaiting_question" and cp:
-                self.draw_text(f"Vez de {cp.get('name')}", (bx, by), self.font_big, DARK); by += 48
-                roll_text = f" Dado: {self.state.get('last_roll')}." if self.state.get("last_roll") else ""
-                self.draw_wrapped(f"{cp.get('name')} está em {track_label(int(cp.get('position', 0)), self.state.get('game_mode', 'dice_board'))}.{roll_text} A pergunta será {diff_label}.", bx, by, 52, self.font_small, TEXT, 24); by += 86
-                self.add_button(pygame.Rect(bx, by, 260, 48), "Iniciar pergunta", lambda: self.fire_and_forget({"type": "begin_question"}), enabled=my_turn)
-            else:
-                self.draw_wrapped("Aguardando o servidor preparar a próxima rodada...", bx, by, 52, self.font_small, TEXT)
+            self.draw_wrapped("Aguardando o servidor preparar a próxima rodada...", bx, by, 70, self.font_small, TEXT)
+        self.draw_mini_event_log(x, right.bottom - 60, content_w)
 
-        self.draw_event_log(right.x, right.y, right.w, right.h)
+    def draw_game_dice_board(self) -> None:
+        """HUD do tabuleiro horizontal, com seções visuais compactas."""
+        right = pygame.Rect(760, 20, 500, 682)
+        self.draw_card(right, PANEL, DARK, 2, 18)
+        x, y = right.x + 16, right.y + 12
+        content_w = right.w - 32
+        self.draw_text(f"Sala {self.room_code}", (x, y), self.font, DARK)
+        self.add_button(pygame.Rect(right.right - 154, y, 58, 30), "Menu", lambda: asyncio.create_task(self.back_to_menu()), font=self.font_tiny)
+        self.add_button(pygame.Rect(right.right - 90, y, 74, 30), "Regras", lambda: asyncio.create_task(self.open_rules_from_game()), font=self.font_tiny)
+        y += 33
+        y = self.draw_players_compact_panel(x, y, max_width=content_w)
+        if not self.state:
+            return
+        q = self.state.get("current_question")
+        cp = self.current_player()
+        my_turn = self.is_my_turn()
+        phase = self.state.get("turn_phase")
+        y = self.draw_turn_banner(x, y, content_w, cp, my_turn, compact=True)
+
+        if phase in {"turn_result", "luck_result"}:
+            self.draw_consequence(x, y, content_w, right.bottom - 8, cp, my_turn, compact=True)
+            return
+
+        if q:
+            remaining = self.remaining_seconds()
+            qid = str(q.get("id"))
+            if my_turn and remaining <= 0 and self.timeout_sent_for_question != qid:
+                self.timeout_sent_for_question = qid
+                self.fire_and_forget({"type": "timeout"})
+            elif remaining > 0:
+                self.timeout_sent_for_question = None
+            diff = q.get("difficulty", "")
+            diff_label = {"easy": "Fácil/Verde", "medium": "Médio/Amarelo", "hard": "Difícil/Vermelho"}.get(diff, diff)
+            self.draw_text(f"Tempo: {remaining}s", (x, y), self.font, RED if remaining <= 10 else DARK)
+            self.draw_text(diff_label, (x + 170, y + 3), self.font_tiny, DARK)
+            y += 29
+            question_rect = pygame.Rect(x, y, content_w, 58)
+            self.draw_card(question_rect, ANSWER_FILL, SOFT_BORDER, 2, 10)
+            self.draw_wrapped(q.get("prompt", ""), x + 10, y + 7, 53, self.font_tiny, TEXT, 17)
+            y += 64
+            eliminated = set(q.get("eliminated_options") or [])
+            letters = ["A", "B", "C", "D"]
+            options = list(q.get("options") or [])
+            for idx, option in enumerate(options):
+                self.add_button(
+                    pygame.Rect(x, y + idx * 31, content_w, 27),
+                    f"{letters[idx]}) {option}"[:70],
+                    lambda i=idx: self.fire_and_forget({"type": "answer", "answer_index": i}),
+                    enabled=my_turn and idx not in eliminated,
+                    fill_color=ANSWER_FILL, hover_color=(234, 244, 226),
+                    border_color=SOFT_BORDER, font=self.font_tiny,
+                )
+            y += len(options) * 31 + 2
+            y = self.draw_balance_card(x, y, content_w, cp, compact=True)
+            y = self.draw_help_section(x, y, content_w, cp, my_turn, compact=True)
+            y = self.draw_mini_event_log(x, y, content_w, compact=True)
+            self.draw_stop_section(x, y, content_w, my_turn, compact=True)
+            return
+
+        pending = self.state.get("pending_question_difficulty")
+        diff_label = {"easy": "Fácil / Verde", "medium": "Médio / Amarelo", "hard": "Difícil / Vermelho"}.get(pending, pending or "")
+        box = pygame.Rect(x, y, content_w, right.bottom - y - 60)
+        self.draw_card(box, (239, 245, 218), SOFT_BORDER, 1, 12)
+        bx, by = box.x + 13, box.y + 12
+        if phase == "awaiting_roll" and cp:
+            self.draw_centered("JOGAR DADO", pygame.Rect(bx, by, box.w - 26, 32), self.font, DARK)
+            by += 37
+            by = self.draw_wrapped(f"{cp.get('name')} está em {track_label(int(cp.get('position', 0)), self.state.get('game_mode', 'dice_board'))}. Role o dado para avançar.", bx, by, 48, self.font_tiny, TEXT, 18)
+            dice_rect = pygame.Rect(bx, by + 7, 92, 76)
+            self.draw_card(dice_rect, WHITE, DARK, 3, 15)
+            self.draw_centered(str(self.dice_value if self.dice_animating else "?"), dice_rect, self.font_big, DARK)
+            status = "Resultado exibido" if self.dice_revealing else ("Rolando..." if self.dice_animating else "Jogar dado")
+            self.add_button(pygame.Rect(bx + 108, by + 20, 225, 43), status, self.start_dice_animation, enabled=my_turn and not self.dice_animating, font=self.font_button_small)
+        elif phase == "awaiting_question" and cp:
+            self.draw_centered("PRONTO PARA A PERGUNTA", pygame.Rect(bx, by, box.w - 26, 36), self.font, DARK)
+            by += 43
+            roll = f" Dado: {self.state.get('last_roll')}." if self.state.get("last_roll") else ""
+            by = self.draw_wrapped(f"{cp.get('name')} está na casa {track_label(int(cp.get('position', 0)), self.state.get('game_mode', 'dice_board'))}.{roll} Nível: {diff_label}.", bx, by, 48, self.font_small, TEXT, 21)
+            self.draw_text("O cronômetro começa ao iniciar.", (bx, by + 5), self.font_tiny, TEXT)
+            self.add_button(pygame.Rect(bx, by + 34, 245, 46), "Iniciar pergunta", lambda: self.fire_and_forget({"type": "begin_question"}), enabled=my_turn, font=self.font_button_small)
+        else:
+            self.draw_wrapped("Aguardando o servidor preparar a próxima rodada...", bx, by, 48, self.font_tiny, TEXT)
+        self.draw_mini_event_log(x, right.bottom - 55, content_w, compact=True)
 
     def draw_event_log(self, panel_x: int, panel_y: int, panel_w: int, panel_h: int) -> None:
         if not self.state:

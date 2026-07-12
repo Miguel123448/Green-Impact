@@ -40,3 +40,7 @@ Incluído modo **Multijogador local** para 2 a 4 jogadores no mesmo dispositivo,
 ## Configuração manual do servidor
 
 No **Multijogador online**, toque ou clique na engrenagem ao lado de **Servidor**. Informe o IP/domínio e a porta, pressione **Salvar** e depois crie ou entre em uma sala. URLs completas `ws://` e `wss://` também são aceitas.
+
+## Atualização 0.4 — correções da análise
+
+A versão iOS/macOS recebeu a mesma HUD corrigida da versão Kivy Android: jogador da vez em destaque, saldo e custos visíveis, ajudas separadas das respostas, **Parar** no final e consequência clara para acerto, erro, timeout, pular, parar e sorte/revés. O monitor de prazo no servidor local também foi habilitado.

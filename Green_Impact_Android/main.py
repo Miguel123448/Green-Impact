@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import websockets
-from green_impact.rules import track_label
+from green_impact.rules import HELP_COST, RESEARCH_BONUS_SECONDS, track_label
 
 from kivy.app import App
 from kivy.clock import Clock
@@ -47,6 +47,13 @@ RED = (0.78, 0.14, 0.14, 1)
 GREEN_FILL = (0.88, 0.94, 0.78, 1)
 WHITE = (1, 1, 1, 1)
 DISABLED = (0.65, 0.66, 0.60, 1)
+ANSWER_FILL = (0.97, 0.98, 0.96, 1)
+HELP_FILL = (0.97, 0.90, 0.63, 1)
+HELP_CARD = (1.00, 0.97, 0.82, 1)
+WARNING_FILL = (1.00, 0.90, 0.82, 1)
+SUCCESS_FILL = (0.84, 0.95, 0.82, 1)
+ERROR_FILL = (1.00, 0.84, 0.82, 1)
+INFO_FILL = (0.86, 0.93, 0.98, 1)
 
 COLOR_ORDER = ["green", "yellow", "red", "blue"]
 COLOR_NAMES = {"green": "Verde", "yellow": "Amarelo", "red": "Vermelho", "blue": "Azul"}
@@ -422,6 +429,7 @@ class GreenImpactAndroidApp(App):
         self.local_name_inputs: list[TextInput] = []
         self.local_name_values: list[str] = [f"Jogador {i + 1}" for i in range(4)]
         self.timeout_sent_for_question: str | None = None
+        self.force_game_scroll_top = True
         self.timer_label: WrappedLabel | None = None
         self.local_count = 2
         self.dice_animating = False
@@ -660,16 +668,27 @@ class GreenImpactAndroidApp(App):
     def title_label(self, text: str, size: int = 28) -> WrappedLabel:
         return self.label(text, size, True, DARK, min_height=40)
 
-    def make_button(self, text: str, callback: Callable[[], None], disabled: bool = False, height: int = 50) -> Button:
+    def make_button(
+        self,
+        text: str,
+        callback: Callable[[], None],
+        disabled: bool = False,
+        height: int = 50,
+        background_color: tuple | None = None,
+        text_color: tuple = DARK,
+        font_size: int = 15,
+    ) -> Button:
+        enabled_color = background_color if background_color is not None else GREEN_FILL
         btn = Button(
             text=text,
             size_hint_y=None,
             height=dp(height),
             disabled=disabled,
             background_normal="",
-            background_color=DISABLED if disabled else GREEN_FILL,
-            color=DARK,
-            font_size=dp(15),
+            background_down="",
+            background_color=DISABLED if disabled else enabled_color,
+            color=text_color,
+            font_size=dp(font_size),
             halign="center",
             valign="middle",
         )
@@ -691,8 +710,21 @@ class GreenImpactAndroidApp(App):
             padding=[dp(10), dp(9), dp(10), dp(9)],
         )
 
-    def card(self, padding: int = 10, spacing: int = 6) -> RoundedBox:
-        return RoundedBox(orientation="vertical", bg_color=CARD, size_hint_y=None, padding=dp(padding), spacing=dp(spacing))
+    def card(
+        self,
+        padding: int = 10,
+        spacing: int = 6,
+        bg_color: tuple = CARD,
+        border_color: tuple = DARK,
+    ) -> RoundedBox:
+        return RoundedBox(
+            orientation="vertical",
+            bg_color=bg_color,
+            border_color=border_color,
+            size_hint_y=None,
+            padding=dp(padding),
+            spacing=dp(spacing),
+        )
 
     def finalize_card(self, card: RoundedBox) -> RoundedBox:
         card.bind(minimum_height=card.setter("height"))
@@ -719,7 +751,19 @@ class GreenImpactAndroidApp(App):
                 self.you = data.get("you") or self.you
                 if data.get("server_ts"):
                     self.server_delta = float(data["server_ts"]) - time.time()
-                self.state = data.get("room")
+
+                old_state = self.state or {}
+                new_state = data.get("room") or {}
+                old_question = old_state.get("current_question") or {}
+                new_question = new_state.get("current_question") or {}
+                phase_changed = old_state.get("turn_phase") != new_state.get("turn_phase")
+                player_changed = old_state.get("current_player_id") != new_state.get("current_player_id")
+                question_changed = old_question.get("id") != new_question.get("id")
+                if phase_changed or player_changed or question_changed:
+                    # Mostra imediatamente o novo jogador ou a consequência.
+                    self.force_game_scroll_top = True
+
+                self.state = new_state
                 if self.state:
                     self.current_screen = "game"
                     self.room_code = self.state.get("code") or self.room_code
@@ -735,17 +779,18 @@ class GreenImpactAndroidApp(App):
         if not self.state or not self.state.get("current_question"):
             return 0
         deadline = float(self.state.get("deadline_ts") or 0)
-        return max(0, int(deadline - (time.time() + self.server_delta)))
+        # ceil evita mostrar 0 antes do prazo real. int() truncava 0,8s para
+        # zero, enviava o timeout cedo e podia deixar a tela parada.
+        return max(0, math.ceil(deadline - (time.time() + self.server_delta)))
 
     def tick_timer(self, _dt: float) -> None:
-        # Atualiza apenas o texto do cronômetro. Não redesenha toda a tela,
-        # porque recriar o ScrollView durante o toque fazia a rolagem voltar
-        # para o começo no Android.
+        # Atualiza apenas o texto do cronômetro para não recriar o ScrollView.
         if not self.state or self.state.get("status") != "playing":
             return
         q = self.state.get("current_question")
         if not q:
             self.timer_label = None
+            self.timeout_sent_for_question = None
             return
 
         remaining = self.remaining_seconds()
@@ -754,7 +799,7 @@ class GreenImpactAndroidApp(App):
             self.timer_label.color = RED if remaining <= 10 else DARK
 
         qid = str(q.get("id"))
-        if self.is_my_turn() and remaining == 0 and self.timeout_sent_for_question != qid:
+        if self.is_my_turn() and remaining <= 0 and self.timeout_sent_for_question != qid:
             self.timeout_sent_for_question = qid
             self.send({"type": "timeout"})
         elif remaining > 0:
@@ -786,6 +831,7 @@ class GreenImpactAndroidApp(App):
         self.room_code = None
         self.connection_error = ""
         self.timeout_sent_for_question = None
+        self.force_game_scroll_top = True
         self.last_render_signature = None
         self.render_main_menu()
 
@@ -1274,8 +1320,16 @@ class GreenImpactAndroidApp(App):
 
                 async def runner() -> None:
                     local_server.QUESTIONS = local_server.load_questions()
-                    async with websockets.serve(local_server.handler, "0.0.0.0", port):
-                        await asyncio.Future()
+                    monitor_task = asyncio.create_task(local_server.deadline_monitor())
+                    try:
+                        async with websockets.serve(local_server.handler, "0.0.0.0", port):
+                            await asyncio.Future()
+                    finally:
+                        monitor_task.cancel()
+                        try:
+                            await monitor_task
+                        except asyncio.CancelledError:
+                            pass
 
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
@@ -1376,8 +1430,8 @@ class GreenImpactAndroidApp(App):
     def players_box(self, compact: bool = True) -> RoundedBox:
         players = self.state.get("players", []) if self.state else []
         current_id = self.state.get("current_player_id") if self.state else None
-        box = self.card(padding=10, spacing=4)
-        box.add_widget(self.label("Jogadores", 19 if compact else 21, True, DARK, min_height=30))
+        box = self.card(padding=10, spacing=5)
+        box.add_widget(self.label("Jogadores", 18 if compact else 21, True, DARK, min_height=30))
         for p in players[:4]:
             status = ""
             if p.get("eliminated"):
@@ -1386,19 +1440,145 @@ class GreenImpactAndroidApp(App):
                 status = " | parou"
             elif not p.get("connected", True):
                 status = " | offline"
-            prefix = "▶ " if p.get("id") == current_id else "• "
+            active = p.get("id") == current_id
             color = COLOR_LABELS.get(p.get("color"), "Sem cor")
-            txt = f"{prefix}[b]{p.get('name')}[/b] | {color} | casa {pos_label(self.state, p.get('position'))} | {p.get('credits')} créditos{status}"
-            fs = 16 if p.get('id') == current_id else (13 if compact else 15)
-            box.add_widget(self.label(txt, fs, False, DARK if p.get('id') == current_id else TEXT, min_height=30 if p.get('id') == current_id else 25))
+            if active:
+                row = self.card(padding=7, spacing=1, bg_color=GREEN_FILL, border_color=DARK)
+                row.add_widget(self.label(f"[b]JOGANDO AGORA: {p.get('name')}[/b]", 18, False, DARK, min_height=32))
+                row.add_widget(self.label(
+                    f"{color} | casa {pos_label(self.state, p.get('position'))} | {p.get('credits')} créditos{status}",
+                    14, False, TEXT, min_height=26,
+                ))
+                self.finalize_card(row)
+                box.add_widget(row)
+            else:
+                txt = f"{p.get('name')} | {color} | casa {pos_label(self.state, p.get('position'))} | {p.get('credits')} créditos{status}"
+                box.add_widget(self.label(txt, 13 if compact else 15, False, TEXT, min_height=26))
         self.finalize_card(box)
         return box
 
-    # ---------- partida ----------
+    def current_turn_banner(self, cp: dict[str, Any], my_turn: bool) -> RoundedBox:
+        phase = self.state.get("turn_phase") if self.state else ""
+        if phase in {"turn_result", "luck_result"}:
+            heading = f"RESULTADO DE {cp.get('name')}"
+        elif my_turn and not (self.state and self.state.get("local_multiplayer")):
+            heading = f"SUA VEZ: {cp.get('name')}"
+        else:
+            heading = f"VEZ DE {cp.get('name')}"
+
+        color_name = COLOR_LABELS.get(cp.get("color"), "Sem cor")
+        banner = self.card(padding=12, spacing=3, bg_color=GREEN_FILL, border_color=DARK)
+        banner.add_widget(self.label(heading, 29, True, DARK, min_height=44, halign="center"))
+        banner.add_widget(self.label(
+            f"{cp.get('name')} | {color_name} | casa {pos_label(self.state, cp.get('position'))} | saldo: {cp.get('credits')} créditos",
+            15, False, TEXT, min_height=30, halign="center",
+        ))
+        self.finalize_card(banner)
+        return banner
+
+    def render_stop_area(self, my_turn: bool) -> None:
+        stop_card = self.card(padding=10, spacing=6, bg_color=WARNING_FILL, border_color=RED)
+        stop_card.add_widget(self.label("PARAR DE JOGAR", 18, True, RED, min_height=30))
+        stop_card.add_widget(self.label(
+            "Esta ação não é uma ajuda. Ao parar, o jogador fica com metade do saldo atual e deixa de participar das próximas rodadas.",
+            14, False, TEXT, min_height=58,
+        ))
+        stop_card.add_widget(self.make_button(
+            "Parar e sair das próximas rodadas",
+            lambda: self.send({"type": "stop"}),
+            disabled=not my_turn,
+            height=58,
+            background_color=ERROR_FILL,
+            text_color=RED,
+            font_size=16,
+        ))
+        self.finalize_card(stop_card)
+        self.add(stop_card)
+
+    def render_consequence_area(self, cp: dict[str, Any] | None, my_turn: bool) -> None:
+        result = dict((self.state or {}).get("turn_result") or {})
+        kind = str(result.get("kind") or "result")
+        styles = {
+            "correct": (SUCCESS_FILL, DARK, "RESPOSTA CORRETA"),
+            "incorrect": (ERROR_FILL, RED, "RESPOSTA INCORRETA"),
+            "timeout": (ERROR_FILL, RED, "TEMPO ESGOTADO"),
+            "skipped": (INFO_FILL, DARK, "PERGUNTA PULADA"),
+            "stopped": (WARNING_FILL, RED, "JOGADOR PAROU"),
+            "luck_gain": (SUCCESS_FILL, DARK, "CONSEQUÊNCIA DA CASA"),
+            "luck_loss": (WARNING_FILL, RED, "CONSEQUÊNCIA DA CASA"),
+        }
+        bg_color, accent, fallback_title = styles.get(kind, (INFO_FILL, DARK, "CONSEQUÊNCIA"))
+        title = str(result.get("title") or fallback_title)
+        message = str(result.get("message") or (self.state or {}).get("special_event") or "Rodada concluída.")
+
+        card = self.card(padding=14, spacing=8, bg_color=bg_color, border_color=accent)
+        card.add_widget(self.label("CONSEQUÊNCIA", 15, True, accent, min_height=28, halign="center"))
+        card.add_widget(self.label(title, 27, True, accent, min_height=48, halign="center"))
+        card.add_widget(self.label(message, 16, False, TEXT, min_height=72, halign="center"))
+
+        old_credits = result.get("old_credits")
+        new_credits = result.get("new_credits")
+        if old_credits is not None and new_credits is not None:
+            delta = int(result.get("credit_delta") or 0)
+            delta_text = f"+{delta}" if delta > 0 else str(delta)
+            card.add_widget(self.label(
+                f"[b]Saldo de carbono:[/b] {old_credits} → {new_credits} créditos ({delta_text})",
+                18, False, DARK, min_height=36, halign="center",
+            ))
+
+        old_position = result.get("old_position_label")
+        new_position = result.get("new_position_label")
+        if old_position and new_position and old_position != new_position:
+            card.add_widget(self.label(
+                f"[b]Posição:[/b] {old_position} → {new_position}",
+                17, False, DARK, min_height=34, halign="center",
+            ))
+        elif result.get("position_label"):
+            card.add_widget(self.label(
+                f"[b]Posição atual:[/b] {result.get('position_label')}",
+                15, False, DARK, min_height=30, halign="center",
+            ))
+
+        correct_answer = str(result.get("correct_answer") or "").strip()
+        if correct_answer:
+            card.add_widget(self.label(
+                f"[b]Resposta correta:[/b] {correct_answer}",
+                15, False, DARK, min_height=52,
+            ))
+        if result.get("eliminated"):
+            card.add_widget(self.label(
+                "O jogador foi eliminado e não participará das próximas rodadas.",
+                16, True, RED, min_height=42, halign="center",
+            ))
+        elif result.get("stopped"):
+            card.add_widget(self.label(
+                "O jogador manteve metade do saldo e saiu das próximas rodadas.",
+                16, True, RED, min_height=42, halign="center",
+            ))
+
+        button_text = "Continuar" if (self.state or {}).get("turn_phase") == "luck_result" else "Próximo jogador"
+        card.add_widget(self.make_button(
+            button_text,
+            lambda: self.send({"type": "continue"}),
+            disabled=not my_turn,
+            height=62,
+            background_color=GREEN_FILL,
+            font_size=17,
+        ))
+        if not my_turn:
+            player_name = (cp or {}).get("name") or "jogador da vez"
+            card.add_widget(self.label(
+                f"Aguardando {player_name} continuar.",
+                14, False, TEXT, min_height=30, halign="center",
+            ))
+        self.finalize_card(card)
+        self.add(card)
+
     def render_game(self) -> None:
         self.current_screen = "game"
         self.apply_layout_for_current_mode()
-        self.clear_panel(preserve_scroll=True)
+        self.clear_panel(preserve_scroll=not self.force_game_scroll_top)
+        self.force_game_scroll_top = False
         if self.state and self.state.get("game_mode") != "classic":
             self.add(self.title_label(f"Sala {self.room_code} - Tabuleiro com dado", 24))
         else:
@@ -1407,7 +1587,6 @@ class GreenImpactAndroidApp(App):
         nav.add_widget(self.make_button("Menu", self.return_to_menu, height=48))
         nav.add_widget(self.make_button("Como jogar", self.open_how_to_play, height=48))
         self.add(nav)
-        self.add(self.players_box(compact=True))
 
         if not self.state:
             return
@@ -1416,11 +1595,8 @@ class GreenImpactAndroidApp(App):
         cp = self.current_player()
         my_turn = self.is_my_turn()
         if cp:
-            turn = self.card(padding=8, spacing=2)
-            turn.add_widget(self.label(f"Vez: [b]{cp.get('name')}[/b]", 16, False, DARK, min_height=26))
-            turn.add_widget(self.label(f"Casa atual: {pos_label(self.state, cp.get('position'))}   |   Sua vez: {'Sim' if my_turn else 'Não'}", 13, False, TEXT, min_height=24))
-            self.finalize_card(turn)
-            self.add(turn)
+            self.add(self.current_turn_banner(cp, my_turn))
+        self.add(self.players_box(compact=True))
 
         if q:
             self.render_question_area(q, my_turn)
@@ -1428,72 +1604,154 @@ class GreenImpactAndroidApp(App):
             self.render_pause_area(cp, my_turn)
 
         self.add(self.event_log_box())
+        if q:
+            # Parar fica deliberadamente no final, longe das ajudas.
+            self.render_stop_area(my_turn)
 
     def render_question_area(self, q: dict[str, Any], my_turn: bool) -> None:
         remaining = self.remaining_seconds()
         qid = str(q.get("id"))
-        if my_turn and remaining == 0 and self.timeout_sent_for_question != qid:
+        if my_turn and remaining <= 0 and self.timeout_sent_for_question != qid:
             self.timeout_sent_for_question = qid
             self.send({"type": "timeout"})
         if remaining > 0:
             self.timeout_sent_for_question = None
 
-        timer = self.card(padding=8, spacing=2)
-        self.timer_label = self.label(f"Tempo: [b]{remaining}s[/b]", 24, False, RED if remaining <= 10 else DARK, min_height=34)
+        timer_bg = ERROR_FILL if remaining <= 10 else INFO_FILL
+        timer_border = RED if remaining <= 10 else DARK
+        timer = self.card(padding=9, spacing=2, bg_color=timer_bg, border_color=timer_border)
+        self.timer_label = self.label(
+            f"Tempo: [b]{remaining}s[/b]",
+            26, False, RED if remaining <= 10 else DARK, min_height=38, halign="center",
+        )
         timer.add_widget(self.timer_label)
-        timer.add_widget(self.label(f"Pergunta: {DIFF_LABELS.get(q.get('difficulty'), q.get('difficulty'))}", 15, False, DARK, min_height=26))
+        timer.add_widget(self.label(
+            f"Nível: {DIFF_LABELS.get(q.get('difficulty'), q.get('difficulty'))}",
+            15, False, DARK, min_height=27, halign="center",
+        ))
         self.finalize_card(timer)
         self.add(timer)
 
-        question_box = self.card(padding=10, spacing=2)
-        question_box.add_widget(self.label(q.get("prompt", ""), 17, False, TEXT, min_height=68))
+        question_box = self.card(padding=12, spacing=4, bg_color=CARD, border_color=DARK)
+        question_box.add_widget(self.label("PERGUNTA", 15, True, DARK, min_height=28))
+        question_box.add_widget(self.label(q.get("prompt", ""), 18, False, TEXT, min_height=76))
         self.finalize_card(question_box)
         self.add(question_box)
 
+        answers = self.card(padding=10, spacing=7, bg_color=ANSWER_FILL, border_color=DARK)
+        answers.add_widget(self.label("RESPOSTAS", 18, True, DARK, min_height=30))
         eliminated = set(q.get("eliminated_options") or [])
         letters = ["A", "B", "C", "D"]
         for idx, opt in enumerate(q.get("options") or []):
             disabled = (idx in eliminated) or not my_turn
             txt = f"{letters[idx]}) {opt}"
             if idx in eliminated:
-                txt += "  (eliminada)"
-            self.add(self.make_button(txt, lambda i=idx: self.send({"type": "answer", "answer_index": i}), disabled=disabled, height=58))
+                txt += "\nALTERNATIVA ELIMINADA"
+            answers.add_widget(self.make_button(
+                txt,
+                lambda i=idx: self.send({"type": "answer", "answer_index": i}),
+                disabled=disabled,
+                height=64,
+                background_color=WHITE,
+                font_size=16,
+            ))
+        self.finalize_card(answers)
+        self.add(answers)
 
         cp = self.current_player()
-        saldo = cp.get("credits") if cp else "-"
-        self.add(self.label(f"[b]Créditos do jogador da vez:[/b] {saldo}. Cada ajuda custa 3 créditos.", 15, False, DARK, min_height=40))
+        saldo = int(cp.get("credits", 0)) if cp else 0
+        balance = self.card(
+            padding=11,
+            spacing=3,
+            bg_color=SUCCESS_FILL if saldo >= HELP_COST else WARNING_FILL,
+            border_color=DARK,
+        )
+        balance.add_widget(self.label("SALDO DE CARBONO", 16, True, DARK, min_height=28, halign="center"))
+        balance.add_widget(self.label(f"[b]{saldo} créditos[/b]", 29, False, DARK, min_height=46, halign="center"))
+        balance.add_widget(self.label(
+            f"Cada ajuda custa [b]{HELP_COST} créditos[/b]. "
+            + ("Você pode comprar uma ajuda." if saldo >= HELP_COST else "Saldo insuficiente para comprar ajuda."),
+            15, False, DARK, min_height=42, halign="center",
+        ))
+        self.finalize_card(balance)
+        self.add(balance)
 
-        helps = self.card(padding=8, spacing=6)
-        helps.add_widget(self.label("Ajudas", 18, True, DARK, min_height=30))
-        grid = self.button_grid(cols=2, height=174)
-        grid.add_widget(self.make_button("Eliminar 2 alternativas", lambda: self.send({"type": "help", "help": "eliminate2"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
-        grid.add_widget(self.make_button("Pesquisa (+20s)", lambda: self.send({"type": "help", "help": "research"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
-        grid.add_widget(self.make_button("Especialista", lambda: self.send({"type": "help", "help": "expert"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
-        grid.add_widget(self.make_button("Pular pergunta", lambda: self.send({"type": "help", "help": "skip"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
+        help_used = bool((self.state or {}).get("help_used_this_turn"))
+        help_disabled = (not my_turn) or help_used or saldo < HELP_COST
+        helps = self.card(
+            padding=10,
+            spacing=7,
+            bg_color=HELP_CARD,
+            border_color=(0.65, 0.47, 0.08, 1),
+        )
+        helps.add_widget(self.label("AJUDAS", 20, True, DARK, min_height=32))
+        helps.add_widget(self.label(
+            f"São recursos opcionais, não respostas. Use no máximo uma por rodada. Custo unitário: {HELP_COST} créditos.",
+            14, False, TEXT, min_height=48,
+        ))
+        if help_used:
+            helps.add_widget(self.label("Ajuda já utilizada nesta rodada.", 14, True, RED, min_height=28))
+        elif saldo < HELP_COST:
+            helps.add_widget(self.label("Você não possui créditos suficientes.", 14, True, RED, min_height=28))
+
+        grid = self.button_grid(cols=2, height=126)
+        grid.add_widget(self.make_button(
+            f"Eliminar 2 respostas\nCusto: {HELP_COST}",
+            lambda: self.send({"type": "help", "help": "eliminate2"}),
+            disabled=help_disabled,
+            height=58,
+            background_color=HELP_FILL,
+            font_size=14,
+        ))
+        grid.add_widget(self.make_button(
+            f"Pesquisa: +{RESEARCH_BONUS_SECONDS}s\nCusto: {HELP_COST}",
+            lambda: self.send({"type": "help", "help": "research"}),
+            disabled=help_disabled,
+            height=58,
+            background_color=HELP_FILL,
+            font_size=14,
+        ))
+        grid.add_widget(self.make_button(
+            f"Dica do especialista\nCusto: {HELP_COST}",
+            lambda: self.send({"type": "help", "help": "expert"}),
+            disabled=help_disabled,
+            height=58,
+            background_color=HELP_FILL,
+            font_size=14,
+        ))
+        grid.add_widget(self.make_button(
+            f"Pular a pergunta\nCusto: {HELP_COST}",
+            lambda: self.send({"type": "help", "help": "skip"}),
+            disabled=help_disabled,
+            height=58,
+            background_color=HELP_FILL,
+            font_size=14,
+        ))
         helps.add_widget(grid)
         self.finalize_card(helps)
         self.add(helps)
-
-        stop_card = self.card(padding=8, spacing=4)
-        stop_card.add_widget(self.label("Desistir da partida", 16, True, DARK, min_height=28))
-        stop_card.add_widget(self.label("Use Parar apenas se não quiser arriscar perder tudo. Você fica com metade dos créditos e sai das próximas rodadas.", 13, False, TEXT, min_height=50))
-        stop_card.add_widget(self.make_button("Parar", lambda: self.send({"type": "stop"}), disabled=not my_turn, height=54))
-        self.finalize_card(stop_card)
-        self.add(stop_card)
 
     def render_pause_area(self, cp: dict[str, Any] | None, my_turn: bool) -> None:
         self.timer_label = None
         phase = self.state.get("turn_phase") if self.state else None
         pending = self.state.get("pending_question_difficulty") if self.state else None
+
+        if phase in {"turn_result", "luck_result"}:
+            self.render_consequence_area(cp, my_turn)
+            return
+
         pause = self.card(padding=12, spacing=8)
         if phase == "awaiting_roll" and cp:
-            pause.add_widget(self.label("Jogar dado", 23, True, DARK, min_height=38))
+            pause.add_widget(self.label("Jogar dado", 24, True, DARK, min_height=40, halign="center"))
             pause.add_widget(self.label(
-                f"{cp.get('name')} está em {pos_label(self.state, cp.get('position'))}. Toque para lançar o dado e avançar no novo tabuleiro.",
-                15, False, TEXT, min_height=64,
+                f"{cp.get('name')} está em {pos_label(self.state, cp.get('position'))}. Toque para lançar o dado e avançar no tabuleiro.",
+                16, False, TEXT, min_height=64, halign="center",
             ))
-            dice_card = self.card(padding=8, spacing=4)
-            dice_card.add_widget(self.label(f"[b]{self.dice_value if self.dice_animating else '?'}[/b]", 46, True, DARK, min_height=76, halign="center"))
+            dice_card = self.card(padding=8, spacing=4, bg_color=INFO_FILL)
+            dice_card.add_widget(self.label(
+                f"[b]{self.dice_value if self.dice_animating else '?'}[/b]",
+                46, True, DARK, min_height=76, halign="center",
+            ))
             if self.dice_revealing:
                 dice_status = "Resultado sorteado. O peão anda em 1 segundo..."
                 btn_text = "Resultado exibido"
@@ -1503,33 +1761,45 @@ class GreenImpactAndroidApp(App):
             else:
                 dice_status = "Pronto para lançar"
                 btn_text = "Jogar dado"
-            dice_card.add_widget(self.label(dice_status, 13, False, TEXT, min_height=34, halign="center"))
+            dice_card.add_widget(self.label(dice_status, 14, False, TEXT, min_height=34, halign="center"))
             self.finalize_card(dice_card)
             pause.add_widget(dice_card)
-            pause.add_widget(self.make_button(btn_text, self.start_dice_animation, disabled=(not my_turn or self.dice_animating), height=60))
-        elif phase == "turn_result" and cp:
-            pause.add_widget(self.label("Resultado da rodada", 23, True, DARK, min_height=38))
-            pause.add_widget(self.label(self.state.get("special_event") or "Rodada concluída.", 16, False, TEXT, min_height=90))
-            pause.add_widget(self.make_button("Próximo jogador", lambda: self.send({"type": "continue"}), disabled=not my_turn, height=60))
-        elif phase == "luck_result" and cp:
-            pause.add_widget(self.label("Casa de sorte/revés", 23, True, DARK, min_height=38))
-            pause.add_widget(self.label(self.state.get("special_event") or "Evento especial aplicado.", 15, False, TEXT, min_height=72))
-            pause.add_widget(self.make_button("Continuar", lambda: self.send({"type": "continue"}), disabled=not my_turn, height=60))
+            pause.add_widget(self.make_button(
+                btn_text,
+                self.start_dice_animation,
+                disabled=(not my_turn or self.dice_animating),
+                height=62,
+                font_size=17,
+            ))
         elif phase == "awaiting_question" and cp:
-            pause.add_widget(self.label(f"Vez de {cp.get('name')}", 26, True, DARK, min_height=44))
+            pause.add_widget(self.label("PRONTO PARA A PERGUNTA", 23, True, DARK, min_height=40, halign="center"))
             roll_txt = f" Dado: {self.state.get('last_roll')}." if self.state.get("last_roll") else ""
             pause.add_widget(self.label(
-                f"{cp.get('name')} está em {pos_label(self.state, cp.get('position'))}.{roll_txt} A pergunta será: [b]{DIFF_LABELS.get(pending, pending or '')}[/b]. O cronômetro só começa depois de tocar no botão abaixo.",
-                15,
-                False,
-                TEXT,
-                min_height=86,
+                f"{cp.get('name')} está na casa {pos_label(self.state, cp.get('position'))}.{roll_txt}\n"
+                f"Nível da pergunta: [b]{DIFF_LABELS.get(pending, pending or '')}[/b].",
+                17, False, TEXT, min_height=78, halign="center",
             ))
-            pause.add_widget(self.make_button("Iniciar pergunta", lambda: self.send({"type": "begin_question"}), disabled=not my_turn, height=60))
+            pause.add_widget(self.label(
+                "O cronômetro só começa ao tocar em Iniciar pergunta.",
+                14, False, TEXT, min_height=32, halign="center",
+            ))
+            pause.add_widget(self.make_button(
+                "Iniciar pergunta",
+                lambda: self.send({"type": "begin_question"}),
+                disabled=not my_turn,
+                height=62,
+                font_size=18,
+            ))
             if not my_turn:
-                pause.add_widget(self.label("Aguardando o jogador da vez iniciar.", 13, False, TEXT, min_height=28))
+                pause.add_widget(self.label(
+                    "Aguardando o jogador da vez iniciar.",
+                    14, False, TEXT, min_height=30, halign="center",
+                ))
         else:
-            pause.add_widget(self.label("Aguardando o servidor preparar a próxima rodada...", 17, False, TEXT, min_height=70))
+            pause.add_widget(self.label(
+                "Aguardando o servidor preparar a próxima rodada...",
+                17, False, TEXT, min_height=70, halign="center",
+            ))
         self.finalize_card(pause)
         self.add(pause)
 

@@ -55,3 +55,7 @@ Esta versão inclui:
 - Casas 1 a 5: perguntas fáceis; casas 6 a 9: perguntas médias; casas 10 a 12: perguntas difíceis.
 - Casas com símbolo de planta: eventos de **sorte/revés**, com bônus ou perda de créditos de carbono.
 - O modo **Um jogador** permanece com o tabuleiro original e a regra anterior.
+
+## Atualização 0.4 — correções da análise
+
+A HUD da partida foi reorganizada: jogador da vez em destaque, respostas e ajudas separadas, saldo e custos visíveis, **Parar** no final e tela de consequência após cada resultado. O timeout agora é controlado também pelo servidor, evitando que a partida fique parada ao chegar a zero.
