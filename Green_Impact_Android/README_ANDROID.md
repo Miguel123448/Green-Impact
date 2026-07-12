@@ -48,3 +48,32 @@ Esta versão já inclui `assets/app_icon.png`, configurado em `buildozer.spec` p
 ## Atualização: multijogador local e novo tabuleiro
 
 Incluído modo **Multijogador local** para 2 a 4 jogadores no mesmo aparelho, além do multijogador online com o novo tabuleiro (`assets/board_new.jpg`). O multijogador agora usa dado, casas de pergunta por dificuldade e casas de sorte/revés com símbolo de planta. O modo **Um jogador** mantém o tabuleiro original.
+
+## Configuração manual do servidor
+
+No **Multijogador online**, toque ou clique na engrenagem ao lado de **Servidor**. Informe o IP/domínio e a porta, pressione **Salvar** e depois crie ou entre em uma sala. URLs completas `ws://` e `wss://` também são aceitas.
+
+## Correção do HUD Android — engrenagem do servidor
+
+A configuração manual foi implementada diretamente em `main.py`, que é a interface Kivy usada pelo APK. A engrenagem é desenhada pelo canvas do Kivy, sem depender do caractere Unicode `⚙`, e aparece no cabeçalho do **Multijogador online**, ao lado de **Servidor**.
+
+Ao tocar nela, abre-se uma janela adaptada à resolução do aparelho com:
+
+- IP ou domínio;
+- porta;
+- prévia da URL de conexão;
+- validação da porta entre 1 e 65535;
+- botões **Salvar**, **Usar padrão** e **Fechar**.
+
+## Correção da área segura do Android — versão 0.3
+
+Em celulares que exibem a barra de navegação na lateral durante o modo paisagem, o Android pode entregar ao Kivy a área física inteira da tela. Com `android.api = 35`, isso permite que a interface seja desenhada por baixo dos botões **Voltar**, **Início** e **Recentes**.
+
+A versão 0.3 consulta os `WindowInsets` nativos do Android e reserva automaticamente espaço para:
+
+- barra de navegação lateral ou inferior;
+- barra de status;
+- recorte/notch da tela;
+- alterações de orientação e retorno do aplicativo ao primeiro plano.
+
+A correção é dinâmica e funciona tanto com navegação por três botões quanto por gestos. A janela de configuração do servidor também usa as dimensões úteis da tela.

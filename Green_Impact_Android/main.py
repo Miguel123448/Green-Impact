@@ -27,6 +27,7 @@ from kivy.uix.button import Button
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.image import Image
 from kivy.uix.label import Label
+from kivy.uix.popup import Popup
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
 from kivy.uix.widget import Widget
@@ -138,6 +139,60 @@ class RoundedBox(BoxLayout):
         self._bg.pos = self.pos
         self._bg.size = self.size
         self._border.rounded_rectangle = (self.x, self.y, self.width, self.height, self._radius)
+
+
+class GearButton(Button):
+    """Botão de engrenagem desenhado no canvas, sem depender de fonte/emoji.
+
+    No Android, o caractere Unicode de engrenagem pode não existir na fonte
+    padrão do Kivy. Desenhar o ícone garante que ele fique visível em todos
+    os aparelhos e densidades de tela.
+    """
+
+    def __init__(self, callback: Callable[[], None], **kwargs: Any):
+        super().__init__(
+            text="",
+            size_hint=(None, None),
+            width=dp(52),
+            height=dp(52),
+            background_normal="",
+            background_down="",
+            background_color=(0, 0, 0, 0),
+            **kwargs,
+        )
+        self._callback = callback
+        with self.canvas.before:
+            self._gear_bg_color = Color(*GREEN_FILL)
+            self._gear_bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(12)])
+            self._gear_border_color = Color(*DARK)
+            self._gear_border = Line(rounded_rectangle=(self.x, self.y, self.width, self.height, dp(12)), width=1.4)
+        with self.canvas.after:
+            self._gear_color = Color(*DARK)
+            self._gear_teeth = [Line(points=[0, 0, 0, 0], width=dp(3.2)) for _ in range(8)]
+            self._gear_outer = Line(circle=(0, 0, 0), width=dp(3.0))
+            self._gear_inner = Line(circle=(0, 0, 0), width=dp(2.6))
+        self.bind(pos=self._update_gear, size=self._update_gear)
+        self.bind(on_release=lambda *_: self._callback())
+        Clock.schedule_once(lambda *_: self._update_gear(), 0)
+
+    def _update_gear(self, *_args: Any) -> None:
+        self._gear_bg.pos = self.pos
+        self._gear_bg.size = self.size
+        self._gear_border.rounded_rectangle = (self.x, self.y, self.width, self.height, dp(12))
+        cx, cy = self.center
+        unit = min(self.width, self.height)
+        inner_r = unit * 0.21
+        outer_r = unit * 0.34
+        for line, angle in zip(self._gear_teeth, range(0, 360, 45)):
+            rad = math.radians(angle)
+            line.points = [
+                cx + math.cos(rad) * inner_r,
+                cy + math.sin(rad) * inner_r,
+                cx + math.cos(rad) * outer_r,
+                cy + math.sin(rad) * outer_r,
+            ]
+        self._gear_outer.circle = (cx, cy, unit * 0.205)
+        self._gear_inner.circle = (cx, cy, unit * 0.072)
 
 
 class WrappedLabel(Label):
@@ -359,6 +414,11 @@ class GreenImpactAndroidApp(App):
         self.host_input: TextInput | None = None
         self.port_input: TextInput | None = None
         self.room_input: TextInput | None = None
+        self.server_host = DEFAULT_SERVER_HOST
+        self.server_port = DEFAULT_SERVER_PORT
+        self.server_popup: Popup | None = None
+        self.server_preview_label: WrappedLabel | None = None
+        self.server_error_label: WrappedLabel | None = None
         self.local_name_inputs: list[TextInput] = []
         self.local_name_values: list[str] = [f"Jogador {i + 1}" for i in range(4)]
         self.timeout_sent_for_question: str | None = None
@@ -370,20 +430,167 @@ class GreenImpactAndroidApp(App):
         self.dice_value = 1
         self.dice_final_value = 1
         self._dice_clock_event = None
+        # Insets reais das barras do Android em pixels: esquerda, topo, direita, base.
+        # O Android 15/target API 35 usa edge-to-edge, então o conteúdo precisa
+        # reservar explicitamente a área dos botões Voltar/Início/Recentes.
+        self.safe_insets_px: tuple[int, int, int, int] = (0, 0, 0, 0)
+        self._safe_area_request_pending = False
 
     def build(self) -> BoxLayout:
         Window.clearcolor = BG
         if platform != "android":
             Window.size = (1280, 720)
-        self.root_layout = BoxLayout(orientation="horizontal", padding=dp(6), spacing=dp(8))
+        self.root_layout = BoxLayout(
+            orientation="horizontal",
+            padding=[dp(6), dp(6), dp(6), dp(6)],
+            spacing=dp(8),
+        )
         self.board = BoardWidget(size_hint=(0.40, 1))
         self.panel = RoundedBox(orientation="vertical", bg_color=PANEL, size_hint=(0.60, 1), padding=dp(0), spacing=dp(0))
         self.root_layout.add_widget(self.board)
         self.root_layout.add_widget(self.panel)
         Clock.schedule_interval(self.process_messages, 0.08)
         Clock.schedule_interval(self.tick_timer, 0.5)
+
+        # A leitura dos WindowInsets pode retornar None nos primeiros frames.
+        # Repetimos em momentos curtos e também quando a janela muda de tamanho
+        # (rotação, barra de navegação alternada ou modo de tela cheia).
+        if platform == "android":
+            Window.bind(size=self.schedule_safe_area_refresh)
+            for delay in (0.0, 0.20, 0.75, 1.50):
+                Clock.schedule_once(self.refresh_android_safe_area, delay)
+
         self.render_main_menu()
         return self.root_layout
+
+    def on_resume(self) -> None:
+        """Recalcula a área útil quando o app volta do segundo plano."""
+        if platform == "android":
+            Clock.schedule_once(self.refresh_android_safe_area, 0.10)
+            Clock.schedule_once(self.refresh_android_safe_area, 0.60)
+
+    def schedule_safe_area_refresh(self, *_args: Any) -> None:
+        if platform == "android":
+            Clock.schedule_once(self.refresh_android_safe_area, 0.05)
+
+    def refresh_android_safe_area(self, *_args: Any) -> None:
+        """Obtém os insets das barras do sistema e aplica padding ao HUD.
+
+        Em aparelhos com navegação por três botões, a barra costuma ficar na
+        lateral direita em modo paisagem. Em navegação por gestos ela pode ficar
+        na parte inferior. O código não presume a posição: usa os quatro insets
+        informados pelo Android, incluindo recorte/notch.
+        """
+        if platform != "android" or self._safe_area_request_pending:
+            return
+        self._safe_area_request_pending = True
+
+        try:
+            from android.runnable import run_on_ui_thread
+            from jnius import autoclass
+        except Exception:
+            self._safe_area_request_pending = False
+            return
+
+        @run_on_ui_thread
+        def read_insets_on_android_ui() -> None:
+            values = (0, 0, 0, 0)
+            try:
+                PythonActivity = autoclass("org.kivy.android.PythonActivity")
+                BuildVersion = autoclass("android.os.Build$VERSION")
+                Rect = autoclass("android.graphics.Rect")
+
+                activity = PythonActivity.mActivity
+                decor = activity.getWindow().getDecorView()
+                root_insets = decor.getRootWindowInsets()
+
+                if root_insets is not None and int(BuildVersion.SDK_INT) >= 30:
+                    InsetsType = autoclass("android.view.WindowInsets$Type")
+                    mask = int(InsetsType.systemBars()) | int(InsetsType.displayCutout())
+                    inset = root_insets.getInsets(mask)
+                    values = (
+                        max(0, int(inset.left)),
+                        max(0, int(inset.top)),
+                        max(0, int(inset.right)),
+                        max(0, int(inset.bottom)),
+                    )
+                elif root_insets is not None:
+                    left = max(0, int(root_insets.getSystemWindowInsetLeft()))
+                    top = max(0, int(root_insets.getSystemWindowInsetTop()))
+                    right = max(0, int(root_insets.getSystemWindowInsetRight()))
+                    bottom = max(0, int(root_insets.getSystemWindowInsetBottom()))
+
+                    # O minAPI é 26; display cutout existe a partir do API 28.
+                    if int(BuildVersion.SDK_INT) >= 28:
+                        cutout = root_insets.getDisplayCutout()
+                        if cutout is not None:
+                            left = max(left, int(cutout.getSafeInsetLeft()))
+                            top = max(top, int(cutout.getSafeInsetTop()))
+                            right = max(right, int(cutout.getSafeInsetRight()))
+                            bottom = max(bottom, int(cutout.getSafeInsetBottom()))
+                    values = (left, top, right, bottom)
+                else:
+                    # Fallback para o raro caso de os WindowInsets ainda não
+                    # estarem disponíveis: compara o frame visível com o decor.
+                    frame = Rect()
+                    decor.getWindowVisibleDisplayFrame(frame)
+                    decor_width = max(0, int(decor.getWidth()))
+                    decor_height = max(0, int(decor.getHeight()))
+                    if decor_width and decor_height:
+                        values = (
+                            max(0, int(frame.left)),
+                            max(0, int(frame.top)),
+                            max(0, decor_width - int(frame.right)),
+                            max(0, decor_height - int(frame.bottom)),
+                        )
+            except Exception as exc:
+                print(f"Não foi possível ler a área segura do Android: {exc}")
+
+            Clock.schedule_once(
+                lambda _dt, safe_values=values: self.apply_android_safe_area(safe_values),
+                0,
+            )
+
+        try:
+            read_insets_on_android_ui()
+        except Exception:
+            self._safe_area_request_pending = False
+
+    def apply_android_safe_area(self, values: tuple[int, int, int, int]) -> None:
+        """Reduz a HUD para a área que não está coberta pelo sistema."""
+        self._safe_area_request_pending = False
+        left, top, right, bottom = (max(0, int(value)) for value in values)
+        new_values = (left, top, right, bottom)
+
+        # Alguns aparelhos entregam um frame transitório sem inset durante a
+        # inicialização. Não substituímos uma medida válida por zeros até que
+        # haja uma mudança real de tamanho/orientação.
+        if any(self.safe_insets_px) and not any(new_values):
+            return
+
+        self.safe_insets_px = new_values
+        if not self.root_layout:
+            return
+
+        base = dp(6)
+        # Ordem do padding do BoxLayout: esquerda, topo, direita, base.
+        self.root_layout.padding = [
+            base + left,
+            base + top,
+            base + right,
+            base + bottom,
+        ]
+        self.root_layout.do_layout()
+        if self.board:
+            self.board.redraw()
+
+    def safe_window_size(self) -> tuple[float, float]:
+        """Dimensões úteis da janela, descontando barras e notch."""
+        left, top, right, bottom = self.safe_insets_px
+        return (
+            max(dp(240), Window.width - left - right),
+            max(dp(180), Window.height - top - bottom),
+        )
 
     def apply_layout_for_current_mode(self) -> None:
         """Ajusta a proporção da tela conforme o tabuleiro usado.
@@ -470,10 +677,11 @@ class GreenImpactAndroidApp(App):
         btn.bind(on_release=lambda *_: callback())
         return btn
 
-    def make_input(self, text: str = "", multiline: bool = False) -> TextInput:
+    def make_input(self, text: str = "", multiline: bool = False, input_filter: str | None = None) -> TextInput:
         return TextInput(
             text=text,
             multiline=multiline,
+            input_filter=input_filter,
             size_hint_y=None,
             height=dp(48),
             font_size=dp(17),
@@ -809,13 +1017,37 @@ class GreenImpactAndroidApp(App):
             self.board.redraw()
         self.current_screen = "connection"
         self.clear_panel()
-        self.add(self.title_label("Multijogador online", 30))
-        self.add(self.label("Criar sala abre uma partida nova. Entrar na sala usa o código mostrado para quem criou a partida.", 15, False, TEXT, min_height=58))
+
+        # Cabeçalho real do HUD Android: título à esquerda e configuração do
+        # servidor à direita. O ícone é desenhado no canvas, não como emoji.
+        header = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(58), spacing=dp(8))
+        title = self.title_label("Multijogador online", 28)
+        title.size_hint_x = 1
+        header.add_widget(title)
+
+        server_tools = BoxLayout(orientation="horizontal", size_hint=(None, 1), width=dp(148), spacing=dp(8))
+        server_label = Label(
+            text="Servidor",
+            color=DARK,
+            bold=True,
+            font_size=dp(14),
+            halign="right",
+            valign="middle",
+            size_hint_x=1,
+        )
+        server_label.bind(size=lambda widget, *_: setattr(widget, "text_size", widget.size))
+        server_tools.add_widget(server_label)
+        server_tools.add_widget(GearButton(self.open_server_settings))
+        header.add_widget(server_tools)
+        self.add(header)
+
+        self.add(self.label(
+            "Crie uma sala ou entre usando o código recebido. Para trocar o IP do servidor, toque na engrenagem ao lado de Servidor.",
+            15, False, TEXT, min_height=64,
+        ))
 
         previous_name = self.name_input.text if self.name_input else (self.home_name_input.text if self.home_name_input else "Jogador")
         previous_room = self.room_input.text if self.room_input else ""
-        previous_host = self.host_input.text if self.host_input else DEFAULT_SERVER_HOST
-        previous_port = self.port_input.text if self.port_input else DEFAULT_SERVER_PORT
 
         form = self.card()
         form.add_widget(self.label("Seu nome", 14, False, DARK, min_height=22))
@@ -824,8 +1056,6 @@ class GreenImpactAndroidApp(App):
         form.add_widget(self.label("Código da sala", 14, False, DARK, min_height=22))
         self.room_input = self.make_input(previous_room)
         form.add_widget(self.room_input)
-        self.host_input = self.make_input(previous_host)
-        self.port_input = self.make_input(previous_port)
         self.finalize_card(form)
         self.add(form)
 
@@ -836,17 +1066,130 @@ class GreenImpactAndroidApp(App):
         grid.add_widget(self.make_button("Voltar", self.render_main_menu, height=52))
         self.add(grid)
 
-        help_box = self.card()
-        help_box.add_widget(self.label(
-            "IP e porta ficam configurados internamente. Para jogar em rede local, use a opção Servidor local em uma versão de teste/PC ou mantenha o servidor online ativo.",
-            13, False, TEXT, min_height=62,
+        server_box = self.card()
+        server_box.add_widget(self.label(
+            f"[b]Servidor selecionado[/b]\n{build_server_url(self.server_host, self.server_port)}",
+            13, False, DARK, min_height=54,
         ))
-        self.finalize_card(help_box)
-        self.add(help_box)
+        self.finalize_card(server_box)
+        self.add(server_box)
+
         if self.connection_error:
             self.add(self.label("Erro: " + self.connection_error, 14, False, RED, min_height=36))
         if self.messages:
             self.add(self.message_box())
+
+    def open_server_settings(self) -> None:
+        """Abre a configuração manual do servidor no HUD Android/Kivy."""
+        if self.server_popup is not None:
+            try:
+                self.server_popup.dismiss()
+            except Exception:
+                pass
+
+        content = BoxLayout(orientation="vertical", padding=dp(14), spacing=dp(8))
+        content.add_widget(self.label("Servidor online", 24, True, DARK, min_height=42))
+        content.add_widget(self.label(
+            "Informe o IP ou domínio e a porta. Também é aceita uma URL completa começando com ws:// ou wss://.",
+            14, False, TEXT, min_height=54,
+        ))
+
+        fields = GridLayout(cols=2, spacing=dp(8), size_hint_y=None, height=dp(88), cols_minimum={1: dp(112)})
+        host_column = BoxLayout(orientation="vertical", spacing=dp(3))
+        host_column.add_widget(self.label("IP ou endereço", 13, False, DARK, min_height=24))
+        self.host_input = self.make_input(self.server_host)
+        host_column.add_widget(self.host_input)
+        fields.add_widget(host_column)
+
+        port_column = BoxLayout(orientation="vertical", spacing=dp(3), size_hint_x=None, width=dp(118))
+        port_column.add_widget(self.label("Porta", 13, False, DARK, min_height=24))
+        self.port_input = self.make_input(self.server_port, input_filter="int")
+        port_column.add_widget(self.port_input)
+        fields.add_widget(port_column)
+        content.add_widget(fields)
+
+        self.server_preview_label = self.label("", 13, False, DARK, min_height=42)
+        content.add_widget(self.server_preview_label)
+        self.server_error_label = self.label("", 13, False, RED, min_height=32)
+        content.add_widget(self.server_error_label)
+
+        actions = GridLayout(cols=3, spacing=dp(8), size_hint_y=None, height=dp(52))
+        actions.add_widget(self.make_button("Salvar", self.save_server_settings, height=50))
+        actions.add_widget(self.make_button("Usar padrão", self.reset_server_settings_fields, height=50))
+        actions.add_widget(self.make_button("Fechar", self.close_server_settings, height=50))
+        content.add_widget(actions)
+
+        safe_width, safe_height = self.safe_window_size()
+        popup_width = min(dp(650), safe_width * 0.92)
+        popup_height = min(dp(420), safe_height * 0.90)
+        self.server_popup = Popup(
+            title="Configurar servidor",
+            content=content,
+            size_hint=(None, None),
+            size=(popup_width, popup_height),
+            auto_dismiss=False,
+            separator_color=DARK,
+        )
+        self.host_input.bind(text=lambda *_: self.update_server_preview())
+        self.port_input.bind(text=lambda *_: self.update_server_preview())
+        self.server_popup.bind(on_dismiss=self._server_popup_dismissed)
+        self.update_server_preview()
+        self.server_popup.open()
+
+    def update_server_preview(self) -> None:
+        if self.server_preview_label is None:
+            return
+        host = self.host_input.text.strip() if self.host_input else self.server_host
+        port = self.port_input.text.strip() if self.port_input else self.server_port
+        self.server_preview_label.text = f"[b]Conexão:[/b] {build_server_url(host, port)}"
+
+    def reset_server_settings_fields(self) -> None:
+        if self.host_input is not None:
+            self.host_input.text = DEFAULT_SERVER_HOST
+        if self.port_input is not None:
+            self.port_input.text = DEFAULT_SERVER_PORT
+        if self.server_error_label is not None:
+            self.server_error_label.text = ""
+        self.update_server_preview()
+
+    def save_server_settings(self) -> None:
+        host = (self.host_input.text if self.host_input else "").strip()
+        port_text = (self.port_input.text if self.port_input else DEFAULT_SERVER_PORT).strip() or DEFAULT_SERVER_PORT
+        error = ""
+        if not host:
+            error = "Informe o IP ou endereço do servidor."
+        elif not host.startswith(("ws://", "wss://")):
+            try:
+                port = int(port_text)
+            except ValueError:
+                error = "A porta precisa ser um número."
+            else:
+                if not 1 <= port <= 65535:
+                    error = "A porta deve estar entre 1 e 65535."
+                else:
+                    port_text = str(port)
+
+        if error:
+            if self.server_error_label is not None:
+                self.server_error_label.text = "Erro: " + error
+            return
+
+        self.server_host = host
+        self.server_port = port_text
+        self.connection_error = ""
+        self.close_server_settings()
+        self.render_connection_menu()
+
+    def close_server_settings(self) -> None:
+        if self.server_popup is not None:
+            self.server_popup.dismiss()
+
+    def _server_popup_dismissed(self, *_args: Any) -> None:
+        self.server_popup = None
+        self.server_preview_label = None
+        self.server_error_label = None
+        self.host_input = None
+        self.port_input = None
 
     def render_connecting(self, message: str) -> None:
         self.current_screen = "connecting"
@@ -865,8 +1208,8 @@ class GreenImpactAndroidApp(App):
     # ---------- conexão / servidor local ----------
     def input_values(self) -> tuple[str, str, str, str]:
         name = (self.name_input.text if self.name_input else "Jogador").strip() or "Jogador"
-        host = (self.host_input.text if self.host_input else DEFAULT_SERVER_HOST).strip() or DEFAULT_SERVER_HOST
-        port = (self.port_input.text if self.port_input else DEFAULT_SERVER_PORT).strip() or DEFAULT_SERVER_PORT
+        host = (self.server_host or DEFAULT_SERVER_HOST).strip() or DEFAULT_SERVER_HOST
+        port = (self.server_port or DEFAULT_SERVER_PORT).strip() or DEFAULT_SERVER_PORT
         room = (self.room_input.text if self.room_input else "").strip().upper()
         return name, host, port, room
 

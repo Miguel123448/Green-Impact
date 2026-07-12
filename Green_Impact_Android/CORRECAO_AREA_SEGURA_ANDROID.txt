@@ -1,0 +1,24 @@
+CORREÇÃO DA ÁREA SEGURA — ANDROID 0.3
+
+Problema observado
+- Em modo paisagem, a barra do Android com Voltar, Início e Recentes aparece na lateral direita.
+- Com target API 35, a interface pode ser desenhada até a borda física da tela.
+- Como resultado, o HUD e alguns botões ficam por baixo da barra de navegação.
+
+Correção aplicada
+- Leitura nativa dos WindowInsets do Android por meio de PyJNIus.
+- Reserva automática das áreas esquerda, superior, direita e inferior ocupadas pelo sistema.
+- Inclusão do recorte/notch na área segura.
+- Novo cálculo ao iniciar, redimensionar, girar ou retomar o aplicativo.
+- Fallback pelo frame visível para aparelhos que ainda não entregaram os insets no primeiro frame.
+- Popup do servidor redimensionado de acordo com a área útil.
+- Versão do APK alterada de 0.2 para 0.3.
+
+Para recompilar
+1. Entre na pasta Green_Impact_Android.
+2. Ative o ambiente virtual.
+3. Limpe a versão anterior:
+   buildozer android clean
+4. Compile:
+   buildozer -v android debug
+5. O APK será criado em bin/.

@@ -1,0 +1,24 @@
+CORREÇÃO DO HUD — ANDROID 0.2
+
+Problema encontrado
+- O APK utiliza Green_Impact_Android/main.py, uma interface Kivy.
+- A implementação anterior da engrenagem estava no cliente Pygame e, por isso, não aparecia no Android.
+
+Correção aplicada
+- Engrenagem adicionada ao cabeçalho do Multijogador online, ao lado de Servidor.
+- Ícone desenhado diretamente no canvas do Kivy, sem depender de emoji ou fonte do aparelho.
+- Janela responsiva para configurar IP/domínio e porta.
+- Suporte a ws:// e wss://.
+- Prévia do endereço de conexão.
+- Validação da porta entre 1 e 65535.
+- Botões Salvar, Usar padrão e Fechar.
+- Versão do APK alterada de 0.1 para 0.2.
+
+Para recompilar
+1. Entre em Green_Impact_Android.
+2. Ative o ambiente virtual do Buildozer.
+3. Recomenda-se limpar a compilação antiga uma vez:
+   buildozer android clean
+4. Compile:
+   buildozer -v android debug
+5. O APK será criado em bin/.
