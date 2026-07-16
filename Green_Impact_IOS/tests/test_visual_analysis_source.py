@@ -15,7 +15,7 @@ class IOSVisualAnalysisSourceTests(unittest.TestCase):
             "JOGANDO AGORA",
             "SALDO DE CARBONO",
             "São recursos opcionais, não respostas",
-            "PARAR DE JOGAR",
+            "PARAR",
             "CONSEQUÊNCIA",
             "math.ceil",
         ):

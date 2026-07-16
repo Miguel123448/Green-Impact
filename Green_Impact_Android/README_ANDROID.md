@@ -86,3 +86,11 @@ A correção é dinâmica e funciona tanto com navegação por três botões qua
 - Saldo de carbono e custo das ajudas em destaque.
 - Tela de consequência após acerto, erro, tempo esgotado, pular, parar e sorte/revés.
 - Expiração do tempo controlada também pelo servidor, evitando tela parada.
+
+## Frontend mobile 0.5 — mapa em tela cheia
+
+A interface de partida do Android foi redesenhada para usar o tabuleiro em tela cheia. As ações aparecem em popups responsivos: lançamento de dado, preparação da pergunta, pergunta, ajudas, consequência e resultado final.
+
+A barra superior mostra sala, jogador da vez, saldo de carbono e posição. A barra inferior permite reabrir a ação atual e consultar jogadores, histórico, regras ou voltar ao menu. O popup pode ser ocultado para visualizar o mapa e reaberto pelo botão **Ação/Pergunta**.
+
+A área segura respeita barras do sistema, navegação por gestos e recortes/notches.

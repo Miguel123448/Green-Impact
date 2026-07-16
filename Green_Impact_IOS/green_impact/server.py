@@ -547,8 +547,12 @@ async def handle_stop(ws: Any) -> None:
     player.stopped = True
     old = player.credits
     old_position = player.position
+    player.position = 0
     player.credits = player.credits // 2
-    event = f"{player.name} decidiu parar. Créditos: {old} → {player.credits}. Ele não participa das próximas rodadas."
+    event = (
+        f"{player.name} decidiu parar, voltou para o início e perdeu metade do saldo. "
+        f"Créditos: {old} → {player.credits}."
+    )
     room.current_question = None
     room.deadline_ts = None
     room.turn_phase = "turn_result"
@@ -556,7 +560,7 @@ async def handle_stop(ws: Any) -> None:
     room.special_event = event
     room.turn_result = {
         "kind": "stopped",
-        "title": "Jogador decidiu parar",
+        "title": "Parar",
         "message": event,
         "player_name": player.name,
         "old_credits": old,

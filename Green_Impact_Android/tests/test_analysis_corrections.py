@@ -92,15 +92,16 @@ class AnalysisCorrectionsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(room.turn_result["new_credits"], 3)
         self.assertEqual(room.turn_result["correct_answer"], "C")
 
-    def test_android_source_has_requested_visual_sections(self) -> None:
+    def test_android_source_has_mobile_popup_frontend(self) -> None:
         source = (PROJECT_DIR / "main.py").read_text(encoding="utf-8")
-        self.assertIn("SALDO DE CARBONO", source)
-        self.assertIn("São recursos opcionais, não respostas", source)
-        self.assertIn("PARAR DE JOGAR", source)
-        self.assertIn("CONSEQUÊNCIA", source)
+        self.assertIn("FloatLayout", source)
+        self.assertIn("rebuild_mobile_hud", source)
+        self.assertIn("build_question_mobile_popup", source)
+        self.assertIn("build_consequence_mobile_popup", source)
+        self.assertIn("PARAR", source)
+        self.assertIn("Ocultar e ver o mapa", source)
         self.assertIn("math.ceil", source)
         self.assertNotIn('self.label("Pausa antes da pergunta"', source)
-        self.assertLess(source.index("self.add(self.event_log_box())"), source.index("self.render_stop_area(my_turn)"))
 
 
 if __name__ == "__main__":

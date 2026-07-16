@@ -928,7 +928,7 @@ class GreenImpactClient:
             ("Sorte/Revés", "Casas com símbolo de planta ativam um bônus ou revés de créditos de carbono em vez de pergunta."),
             ("Créditos", "Você começa com 3 créditos de carbono. Ao acertar, ganha créditos conforme a dificuldade. As ajudas custam 3 créditos."),
             ("Erro", "Ao errar, volta ao Início e perde todos os créditos. Se errar novamente depois do reinício, é eliminado."),
-            ("Parar", "Você pode parar para evitar o risco de perder tudo. Nesse caso, não joga mais e fica com metade dos créditos."),
+            ("Parar", "Volta para o início e perde metade do saldo."),
             ("Ajudas", "Eliminar 2 alternativas, Pesquisa, Especialista e Pular pergunta. Só é possível usar uma ajuda por rodada."),
             ("Vitória", "Vence quem completar o percurso primeiro. Se houver empate, ganha quem tiver mais créditos."),
         ]
@@ -1161,11 +1161,11 @@ class GreenImpactClient:
         rect = pygame.Rect(x, y, width, height)
         self.draw_card(rect, WARNING_FILL, RED, 2, 10)
         self.draw_text("PARAR", (x + 10, y + 3), self.font_tiny, RED)
-        self.draw_text("Volta para o inicio e perde metade do saldo", (x + 10, y + 20), self.font_tiny, TEXT)
+        self.draw_text("Volta ao início e perde metade do saldo", (x + 10, y + 20), self.font_tiny, TEXT)
         btn_w = 190 if width > 520 else 162
         self.add_button(
             pygame.Rect(rect.right - btn_w - 6, rect.y + 5, btn_w, rect.h - 10),
-            "Parar de jogar", lambda: self.fire_and_forget({"type": "stop"}),
+            "Parar", lambda: self.fire_and_forget({"type": "stop"}),
             enabled=my_turn, fill_color=ERROR_FILL, hover_color=(255, 226, 220),
             border_color=RED, text_color=RED, font=self.font_button_small,
         )

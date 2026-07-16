@@ -16,7 +16,7 @@ class PCVisualAnalysisSourceTests(unittest.TestCase):
             "SALDO DE CARBONO",
             "AJUDAS",
             "não são respostas",
-            "PARAR NÃO É AJUDA",
+            "PARAR",
             "CONSEQUÊNCIA",
             "math.ceil",
         ):

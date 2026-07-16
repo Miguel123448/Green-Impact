@@ -44,3 +44,11 @@ No **Multijogador online**, toque ou clique na engrenagem ao lado de **Servidor*
 ## Atualização 0.4 — correções da análise
 
 A versão iOS/macOS recebeu a mesma HUD corrigida da versão Kivy Android: jogador da vez em destaque, saldo e custos visíveis, ajudas separadas das respostas, **Parar** no final e consequência clara para acerto, erro, timeout, pular, parar e sorte/revés. O monitor de prazo no servidor local também foi habilitado.
+
+## Frontend mobile 0.5 — mapa em tela cheia
+
+A interface de partida do iOS/macOS foi redesenhada para usar o tabuleiro em tela cheia. As ações aparecem em popups responsivos: lançamento de dado, preparação da pergunta, pergunta, ajudas, consequência e resultado final.
+
+A barra superior mostra sala, jogador da vez, saldo de carbono e posição. A barra inferior permite reabrir a ação atual e consultar jogadores, histórico, regras ou voltar ao menu. O popup pode ser ocultado para visualizar o mapa e reaberto pelo botão **Ação/Pergunta**.
+
+A área segura respeita barras do sistema, navegação por gestos e recortes/notches.

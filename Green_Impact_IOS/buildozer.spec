@@ -4,7 +4,7 @@ title = Green Impact
 package.name = greenimpact
 package.domain = org.gamefication
 
-version = 0.4
+version = 0.5.5
 
 icon.filename = assets/app_icon.png
 
@@ -13,7 +13,7 @@ source.include_exts = py,png,jpg,json,txt,md,ico,icns
 source.exclude_dirs = tests,bin,dist,__pycache__,.venv,venv
 
 entrypoint = main.py
-requirements = python3,kivy,websockets
+requirements = python3,kivy==2.3.1,websockets==12.0
 
 orientation = landscape
 fullscreen = 0
