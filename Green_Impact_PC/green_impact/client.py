@@ -1160,8 +1160,8 @@ class GreenImpactClient:
         height = 40 if compact else 44
         rect = pygame.Rect(x, y, width, height)
         self.draw_card(rect, WARNING_FILL, RED, 2, 10)
-        self.draw_text("PARAR NÃO É AJUDA", (x + 10, y + 3), self.font_tiny, RED)
-        self.draw_text("Metade do saldo; sai das próximas rodadas", (x + 10, y + 20), self.font_tiny, TEXT)
+        self.draw_text("PARAR", (x + 10, y + 3), self.font_tiny, RED)
+        self.draw_text("Volta para o inicio e perde metade do saldo", (x + 10, y + 20), self.font_tiny, TEXT)
         btn_w = 190 if width > 520 else 162
         self.add_button(
             pygame.Rect(rect.right - btn_w - 6, rect.y + 5, btn_w, rect.h - 10),
