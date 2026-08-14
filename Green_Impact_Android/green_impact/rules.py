@@ -54,8 +54,6 @@ TRACK_TO_NUMERIC_HOUSE = {
     17: 12,
 }
 
-# Créditos de carbono concedidos ao responder corretamente.
-# A recompensa cresce de acordo com o nível da pergunta.
 CREDITS_BY_DIFFICULTY = {
     "easy": 1,
     "medium": 2,

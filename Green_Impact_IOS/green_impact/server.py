@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import contextlib
 import json
 import random
 import secrets
@@ -148,7 +147,6 @@ async def next_turn(room: Room) -> None:
     room.help_used_this_turn = False
     room.pending_question_difficulty = None
     room.special_event = None
-    room.turn_result = None
     room.last_roll = None
 
     if room.game_mode == "classic":
@@ -175,22 +173,7 @@ async def after_landing(room: Room, player: Player) -> None:
         message, delta = random.choice(LUCK_EVENTS)
         old = player.credits
         player.credits = max(0, player.credits + delta)
-        applied_delta = player.credits - old
         room.special_event = f"{message} ({old} → {player.credits} créditos)"
-        room.turn_result = {
-            "kind": "luck_gain" if applied_delta >= 0 else "luck_loss",
-            "title": "Sorte: créditos recebidos" if applied_delta >= 0 else "Revés: créditos perdidos",
-            "message": message,
-            "player_name": player.name,
-            "old_credits": old,
-            "new_credits": player.credits,
-            "credit_delta": applied_delta,
-            "old_position": player.position,
-            "new_position": player.position,
-            "position_label": track_label(player.position, room.game_mode),
-            "eliminated": False,
-            "stopped": False,
-        }
         room.turn_phase = "luck_result"
         await broadcast(room, f"{player.name} caiu em uma casa de sorte/revés. {room.special_event}")
         return
@@ -240,7 +223,6 @@ async def handle_continue(ws: Any) -> None:
         return
     room.turn_phase = "idle"
     room.special_event = None
-    room.turn_result = None
     await next_turn(room)
 
 
@@ -267,25 +249,14 @@ async def start_question(room: Room, player: Player) -> None:
 
 
 async def apply_wrong_answer(room: Room, player: Player, reason: str = "resposta incorreta") -> None:
-    question = room.current_question
-    correct_answer = ""
-    if question and 0 <= question.answer_index < len(question.options):
-        correct_answer = question.options[question.answer_index]
-
-    old_credits = player.credits
-    old_position = player.position
-    timed_out = reason == "tempo esgotado"
-
     if player.reset_used:
         player.eliminated = True
         player.credits = 0
-        title = "Tempo esgotado - jogador eliminado" if timed_out else "Resposta incorreta - jogador eliminado"
         event = f"{player.name} errou novamente e foi eliminado ({reason}). Saldo: {player.credits} créditos."
     else:
         player.reset_used = True
         player.position = 0
         player.credits = 0
-        title = "Tempo esgotado - retorno ao início" if timed_out else "Resposta incorreta - retorno ao início"
         event = f"{player.name} errou e voltou ao início, perdendo todos os créditos ({reason}). Saldo: {player.credits} créditos."
 
     room.current_question = None
@@ -293,51 +264,17 @@ async def apply_wrong_answer(room: Room, player: Player, reason: str = "resposta
     room.turn_phase = "turn_result"
     room.pending_question_difficulty = None
     room.special_event = event
-    room.turn_result = {
-        "kind": "timeout" if timed_out else "incorrect",
-        "title": title,
-        "message": event,
-        "player_name": player.name,
-        "old_credits": old_credits,
-        "new_credits": player.credits,
-        "credit_delta": player.credits - old_credits,
-        "old_position": old_position,
-        "new_position": player.position,
-        "old_position_label": track_label(old_position, room.game_mode),
-        "new_position_label": track_label(player.position, room.game_mode),
-        "correct_answer": correct_answer,
-        "eliminated": player.eliminated,
-        "stopped": player.stopped,
-    }
     await broadcast(room, event, reveal_answer=True)
 
 
 async def expire_if_needed(room: Room) -> bool:
     if room.status != "playing" or not room.current_question or not room.deadline_ts:
         return False
-    if now() < room.deadline_ts:
+    if now() <= room.deadline_ts:
         return False
-    player = room.players.get(room.current_player_id or "")
-    if not player:
-        return False
+    player = room.players[room.current_player_id]
     await apply_wrong_answer(room, player, "tempo esgotado")
     return True
-
-
-async def deadline_monitor(interval: float = 0.25) -> None:
-    """Expira perguntas no servidor, mesmo se o cliente estiver em segundo plano.
-
-    Antes, o servidor dependia de o aparelho enviar uma mensagem de timeout.
-    Isso podia deixar a tela parada quando o Android suspendia o app ou quando
-    o contador mostrava 0 antes do instante real do prazo.
-    """
-    while True:
-        for room in list(ROOMS.values()):
-            try:
-                await expire_if_needed(room)
-            except Exception as exc:
-                print(f"Falha ao verificar tempo da sala {room.code}: {exc}")
-        await asyncio.sleep(interval)
 
 
 def get_current_player(room: Room, player_id: str) -> Player | None:
@@ -497,11 +434,8 @@ async def handle_answer(ws: Any, data: dict[str, Any]) -> None:
         await send(ws, {"type": "error", "message": "Não é sua vez."})
         return
     answer_index = int(data.get("answer_index", -1))
-    question = room.current_question
-    if answer_index == question.answer_index:
-        reward = CREDITS_BY_DIFFICULTY[question.difficulty]
-        old_credits = player.credits
-        correct_answer = question.options[question.answer_index] if 0 <= question.answer_index < len(question.options) else ""
+    if answer_index == room.current_question.answer_index:
+        reward = CREDITS_BY_DIFFICULTY[room.current_question.difficulty]
         player.credits += reward
         event = f"{player.name} acertou. Ganhou {reward} créditos de carbono. Saldo atual: {player.credits} créditos."
         room.current_question = None
@@ -509,21 +443,6 @@ async def handle_answer(ws: Any, data: dict[str, Any]) -> None:
         room.turn_phase = "turn_result"
         room.pending_question_difficulty = None
         room.special_event = event
-        room.turn_result = {
-            "kind": "correct",
-            "title": "Resposta correta",
-            "message": event,
-            "player_name": player.name,
-            "old_credits": old_credits,
-            "new_credits": player.credits,
-            "credit_delta": reward,
-            "old_position": player.position,
-            "new_position": player.position,
-            "position_label": track_label(player.position, room.game_mode),
-            "correct_answer": correct_answer,
-            "eliminated": False,
-            "stopped": False,
-        }
         await broadcast(room, event, reveal_answer=True)
         if player.position >= max_position_for_mode(room.game_mode):
             await end_game(room, f"{player.name} completou o percurso com {player.credits} créditos")
@@ -545,33 +464,20 @@ async def handle_stop(ws: Any) -> None:
         await send(ws, {"type": "error", "message": "Inicie a pergunta antes de decidir parar."})
         return
     player.stopped = True
-    old = player.credits
+    old_credits = player.credits
     old_position = player.position
-    player.position = 0
     player.credits = player.credits // 2
+    player.position = 0
     event = (
-        f"{player.name} decidiu parar, voltou para o início e perdeu metade do saldo. "
-        f"Créditos: {old} → {player.credits}."
+        f"{player.name} decidiu parar. Voltou de {track_label(old_position, room.game_mode)} para o Início "
+        f"e perdeu metade do saldo: {old_credits} → {player.credits} créditos. "
+        "Ele não participa das próximas rodadas."
     )
     room.current_question = None
     room.deadline_ts = None
     room.turn_phase = "turn_result"
     room.pending_question_difficulty = None
     room.special_event = event
-    room.turn_result = {
-        "kind": "stopped",
-        "title": "Parar",
-        "message": event,
-        "player_name": player.name,
-        "old_credits": old,
-        "new_credits": player.credits,
-        "credit_delta": player.credits - old,
-        "old_position": old_position,
-        "new_position": player.position,
-        "position_label": track_label(player.position, room.game_mode),
-        "eliminated": False,
-        "stopped": True,
-    }
     await broadcast(room, event)
 
 
@@ -639,29 +545,12 @@ async def handle_help(ws: Any, data: dict[str, Any]) -> None:
         await send(ws, {"type": "private_tip", "message": tip})
         await broadcast(room, f"{player.name} comprou ajuda do especialista. Custo: {HELP_COST} créditos. Saldo: {player.credits} créditos.")
     elif help_type == "skip":
-        question = room.current_question
-        correct_answer = question.options[question.answer_index] if 0 <= question.answer_index < len(question.options) else ""
         event = f"{player.name} usou Pular pergunta. Custo: {HELP_COST} créditos. Saldo atual: {player.credits} créditos."
         room.current_question = None
         room.deadline_ts = None
         room.turn_phase = "turn_result"
         room.pending_question_difficulty = None
         room.special_event = event
-        room.turn_result = {
-            "kind": "skipped",
-            "title": "Pergunta pulada",
-            "message": event,
-            "player_name": player.name,
-            "old_credits": player.credits + HELP_COST,
-            "new_credits": player.credits,
-            "credit_delta": -HELP_COST,
-            "old_position": player.position,
-            "new_position": player.position,
-            "position_label": track_label(player.position, room.game_mode),
-            "correct_answer": correct_answer,
-            "eliminated": False,
-            "stopped": False,
-        }
         await broadcast(room, event)
     else:
         player.credits += HELP_COST
@@ -726,16 +615,10 @@ async def main() -> None:
     args = parser.parse_args()
 
     QUESTIONS = load_questions()
-    monitor_task = asyncio.create_task(deadline_monitor())
-    try:
-        async with websockets.serve(handler, args.host, args.port):
-            print(f"Servidor Green Impact rodando em ws://{args.host}:{args.port}")
-            print("Pressione Ctrl+C para encerrar.")
-            await asyncio.Future()
-    finally:
-        monitor_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await monitor_task
+    async with websockets.serve(handler, args.host, args.port):
+        print(f"Servidor Green Impact rodando em ws://{args.host}:{args.port}")
+        print("Pressione Ctrl+C para encerrar.")
+        await asyncio.Future()
 
 
 if __name__ == "__main__":

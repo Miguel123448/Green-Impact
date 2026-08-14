@@ -187,45 +187,6 @@ class Button:
         if self.enabled:
             self.callback()
 
-
-class GearButton(Button):
-    """Botão de engrenagem desenhado com primitivas do pygame.
-
-    O ícone não depende de fonte ou emoji, então funciona da mesma forma no
-    Windows, Android, iOS e macOS.
-    """
-
-    def __init__(self, rect: pygame.Rect, callback: Callable[[], None], enabled: bool = True):
-        super().__init__(rect, "", callback, enabled)
-
-    def draw(self, screen: pygame.Surface, font: pygame.font.Font, small: bool = False) -> None:
-        mouse = pygame.mouse.get_pos()
-        hover = self.rect.collidepoint(mouse)
-        if not self.enabled:
-            fill = (200, 205, 188)
-            border = DISABLED
-            color = (120, 120, 120)
-        elif hover:
-            fill = (226, 238, 203)
-            border = DARK
-            color = DARK
-        else:
-            fill = (239, 245, 218)
-            border = DARK
-            color = DARK
-
-        pygame.draw.rect(screen, fill, self.rect, border_radius=12)
-        pygame.draw.rect(screen, border, self.rect, width=2, border_radius=12)
-        center = self.rect.center
-        for angle in range(0, 360, 45):
-            rad = math.radians(angle)
-            inner = (center[0] + int(math.cos(rad) * 11), center[1] + int(math.sin(rad) * 11))
-            outer = (center[0] + int(math.cos(rad) * 17), center[1] + int(math.sin(rad) * 17))
-            pygame.draw.line(screen, color, inner, outer, width=5)
-        pygame.draw.circle(screen, color, center, 12, width=4)
-        pygame.draw.circle(screen, fill, center, 4)
-
-
 class InputBox:
     def __init__(self, rect: pygame.Rect, label: str, value: str = ""):
         self.rect = rect
@@ -279,7 +240,6 @@ class GreenImpactClient:
         self.timeout_sent_for_question: str | None = None
         self.connection_error: str | None = None
         self.connecting = False
-        self.show_server_settings = False
         self.local_server_thread: threading.Thread | None = None
         self.local_server_error: str | None = None
         self.local_server_port = 8765
@@ -289,6 +249,8 @@ class GreenImpactClient:
         self.local_count = 2
         self.create_local_names: list[str] = []
         self.local_name_inputs: list[InputBox] = []
+        initial_default_url = build_server_url(DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT)
+        self.manual_server_mode = bool(server_url and server_url != initial_default_url)
         self.dice_animating = False
         self.dice_revealing = False
         self.dice_value = 1
@@ -374,7 +336,7 @@ class GreenImpactClient:
         self.timeout_sent_for_question = None
 
         try:
-            self.messages.append(f"Conectando em {self.server_url}...")
+            self.messages.append("Conectando ao servidor selecionado...")
             self.ws = await websockets.connect(self.server_url)
             asyncio.create_task(self.listen())
             self.in_menu = False
@@ -406,16 +368,8 @@ class GreenImpactClient:
 
                 async def runner() -> None:
                     local_server.QUESTIONS = local_server.load_questions()
-                    monitor_task = asyncio.create_task(local_server.deadline_monitor())
-                    try:
-                        async with websockets.serve(local_server.handler, "0.0.0.0", port):
-                            await asyncio.Future()
-                    finally:
-                        monitor_task.cancel()
-                        try:
-                            await monitor_task
-                        except asyncio.CancelledError:
-                            pass
+                    async with websockets.serve(local_server.handler, "0.0.0.0", port):
+                        await asyncio.Future()
 
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
@@ -494,11 +448,7 @@ class GreenImpactClient:
                     self.you = data.get("you") or self.you
                     if data.get("server_ts"):
                         self.server_delta = float(data["server_ts"]) - time.time()
-                    old_question = (self.state or {}).get("current_question") or {}
-                    self.state = data.get("room") or {}
-                    new_question = self.state.get("current_question") or {}
-                    if old_question.get("id") != new_question.get("id"):
-                        self.timeout_sent_for_question = None
+                    self.state = data.get("room")
                     if self.state:
                         self.room_code = self.state.get("code") or self.room_code
                 elif msg_type == "error":
@@ -642,31 +592,128 @@ class GreenImpactClient:
         self.buttons.append(btn)
         btn.draw(self.screen, self.font_small)
 
+    def draw_round_rect(self, rect: pygame.Rect, fill: tuple[int, int, int], border: tuple[int, int, int] | None = None, radius: int = 18, width: int = 2) -> None:
+        pygame.draw.rect(self.screen, fill, rect, border_radius=radius)
+        if border is not None:
+            pygame.draw.rect(self.screen, border, rect, width=width, border_radius=radius)
+
+    def draw_center_text(self, text: str, rect: pygame.Rect, font: pygame.font.Font | None = None, color: tuple[int, int, int] = TEXT) -> None:
+        font = font or self.font
+        surf = font.render(str(text), True, color)
+        self.screen.blit(surf, surf.get_rect(center=rect.center))
+
+    def draw_wrapped_centered(self, text: str, rect: pygame.Rect, max_chars: int, font: pygame.font.Font | None = None, color: tuple[int, int, int] = TEXT, line_h: int = 24) -> None:
+        font = font or self.font
+        y = rect.y
+        for line in wrap_text(text, max_chars):
+            surf = font.render(line, True, color)
+            x = rect.x + (rect.w - surf.get_width()) // 2
+            self.screen.blit(surf, (x, y))
+            y += line_h
+
+    def draw_labeled_input(self, title: str, box: InputBox, rect: pygame.Rect) -> None:
+        box.label = title
+        box.rect = rect
+        box.draw(self.screen, self.font, self.font_small)
+
+    def add_primary_button(self, rect: pygame.Rect, text: str, callback: Callable[[], None], enabled: bool = True) -> None:
+        mouse = pygame.mouse.get_pos()
+        hover = rect.collidepoint(mouse)
+        if not enabled:
+            fill = (170, 176, 160)
+            border = (150, 155, 140)
+            color = (235, 235, 235)
+        elif hover:
+            fill = (46, 115, 62)
+            border = (30, 88, 46)
+            color = WHITE
+        else:
+            fill = (39, 102, 54)
+            border = (27, 78, 42)
+            color = WHITE
+        self.draw_round_rect(rect, fill, border, radius=16, width=2)
+        self.draw_center_text(text, rect, self.font_big if rect.h >= 58 else self.font, color)
+        self.buttons.append(Button(rect, text, callback, enabled))
+
+    def add_outline_button(self, rect: pygame.Rect, text: str, callback: Callable[[], None], enabled: bool = True, selected: bool = False) -> None:
+        mouse = pygame.mouse.get_pos()
+        hover = rect.collidepoint(mouse)
+        if not enabled:
+            fill = (230, 232, 222)
+            border = (185, 185, 180)
+            color = (140, 140, 140)
+        else:
+            fill = (249, 247, 236)
+            border = (74, 128, 55) if selected else DARK
+            color = DARK
+            if hover:
+                fill = (241, 246, 226)
+        self.draw_round_rect(rect, fill, border, radius=16, width=3 if selected else 2)
+        self.draw_center_text(text, rect, self.font if rect.h >= 56 else self.font_small, color)
+        self.buttons.append(Button(rect, text, callback, enabled))
+
     def add_gear_button(self, rect: pygame.Rect, callback: Callable[[], None], enabled: bool = True) -> None:
-        btn = GearButton(rect, callback, enabled)
-        self.buttons.append(btn)
-        btn.draw(self.screen, self.font_small)
+        mouse = pygame.mouse.get_pos()
+        hover = rect.collidepoint(mouse)
+        fill = (237, 242, 222) if not hover else (224, 237, 202)
+        border = DARK if enabled else DISABLED
+        self.draw_round_rect(rect, fill, border, radius=12, width=2)
+        cx, cy = rect.center
+        outer = max(8, min(rect.w, rect.h) // 5)
+        inner = max(3, outer // 3)
+        pygame.draw.circle(self.screen, DARK, (cx, cy), outer, width=3)
+        pygame.draw.circle(self.screen, DARK, (cx, cy), inner, width=2)
+        for angle in range(0, 360, 45):
+            rad = math.radians(angle)
+            x1 = cx + int(math.cos(rad) * outer)
+            y1 = cy + int(math.sin(rad) * outer)
+            x2 = cx + int(math.cos(rad) * (outer + 7))
+            y2 = cy + int(math.sin(rad) * (outer + 7))
+            pygame.draw.line(self.screen, DARK, (x1, y1), (x2, y2), 3)
+        self.buttons.append(Button(rect, "Selecionar servidor", callback, enabled))
 
-    def menu_input_keys(self) -> tuple[str, ...]:
-        """Retorna apenas os campos que podem receber foco na tela atual."""
-        return ("host", "port") if self.show_server_settings else ("name", "room")
+    def draw_pc_home_background(self) -> tuple[pygame.Rect, pygame.Rect, pygame.Rect]:
+        self.screen.fill((230, 235, 214))
+        header_rect = pygame.Rect(30, 24, 1220, 112)
+        board_rect = pygame.Rect(30, 166, 770, 490)
+        panel = pygame.Rect(840, 182, 384, 482)
+        if self.board_new_img:
+            board_img = pygame.transform.smoothscale(self.board_new_img, board_rect.size)
+            self.screen.blit(board_img, board_rect)
+        elif self.board_img:
+            board_img = pygame.transform.smoothscale(self.board_img, board_rect.size)
+            self.screen.blit(board_img, board_rect)
+        else:
+            self.draw_round_rect(board_rect, (205, 220, 188), (160, 180, 145), radius=26)
+        self.draw_round_rect(panel, (248, 246, 235), (194, 171, 111), radius=26)
+        return header_rect, board_rect, panel
 
-    def toggle_server_settings(self) -> None:
-        self.show_server_settings = not self.show_server_settings
+    def open_server_selector(self) -> None:
+        self.ui_mode = "server_settings"
+        self.connection_error = None
         for box in self.menu_inputs.values():
             box.active = False
-        self.connection_error = None
 
-    def reset_server_settings(self) -> None:
+    def use_default_server(self) -> None:
+        self.manual_server_mode = False
         self.menu_inputs["host"].value = DEFAULT_SERVER_HOST
         self.menu_inputs["port"].value = DEFAULT_SERVER_PORT
         self.connection_error = None
+        self.ui_mode = "connection"
 
-    def apply_server_settings(self) -> None:
+    def enable_manual_server(self) -> None:
+        self.manual_server_mode = True
+        if self.menu_inputs["host"].value == DEFAULT_SERVER_HOST:
+            self.menu_inputs["host"].value = ""
+        if self.menu_inputs["port"].value == DEFAULT_SERVER_PORT:
+            self.menu_inputs["port"].value = ""
+        self.connection_error = None
+
+    def save_manual_server(self) -> None:
         host = self.menu_inputs["host"].value.strip()
-        port_text = self.menu_inputs["port"].value.strip() or DEFAULT_SERVER_PORT
+        port_text = self.menu_inputs["port"].value.strip()
         if not host:
-            self.connection_error = "Informe o IP ou endereço do servidor."
+            self.connection_error = "Informe o IP ou domínio do servidor."
             return
         if not host.startswith(("ws://", "wss://")):
             try:
@@ -677,53 +724,72 @@ class GreenImpactClient:
             if not 1 <= port <= 65535:
                 self.connection_error = "A porta deve estar entre 1 e 65535."
                 return
-            port_text = str(port)
-        self.menu_inputs["host"].value = host
-        self.menu_inputs["port"].value = port_text
-        self.server_url = build_server_url(host, port_text)
+            self.menu_inputs["port"].value = str(port)
+        self.manual_server_mode = True
         self.connection_error = None
-        self.show_server_settings = False
-        for box in self.menu_inputs.values():
-            box.active = False
+        self.ui_mode = "connection"
 
-    def draw_server_settings_overlay(self, panel: pygame.Rect) -> None:
-        shade = pygame.Surface(panel.size, pygame.SRCALPHA)
-        shade.fill((18, 77, 48, 58))
-        self.screen.blit(shade, panel.topleft)
+    def draw_server_settings(self) -> None:
+        self.screen.fill(BG)
+        header_rect, board_rect, panel = self.draw_pc_home_background()
 
-        card = pygame.Rect(panel.x + 72, panel.y + 178, panel.w - 144, 360)
-        pygame.draw.rect(self.screen, WHITE, card, border_radius=18)
-        pygame.draw.rect(self.screen, DARK, card, width=3, border_radius=18)
-        x = card.x + 34
-        y = card.y + 28
-        self.draw_text("Servidor online", (x, y), self.font_big, DARK)
-        self.draw_wrapped(
-            "Digite manualmente o IP ou domínio do servidor. A porta padrão é 8765. Também é possível informar uma URL completa começando com ws:// ou wss://.",
-            x,
-            y + 46,
-            62,
-            self.font_small,
-            TEXT,
-            21,
+        logo_card = pygame.Rect(header_rect.x + 4, header_rect.y + 6, 274, 96)
+        self.draw_round_rect(logo_card, (247, 243, 228), (210, 195, 145), radius=28)
+        if self.logo_img:
+            logo = pygame.transform.smoothscale(self.logo_img, (220, 110))
+            self.screen.blit(logo, (logo_card.x + 18, logo_card.y - 4))
+
+        title_rect = pygame.Rect(400, 26, 612, 46)
+        self.draw_center_text("Selecionar servidor", title_rect, self.font_title, DARK)
+        pygame.draw.line(self.screen, (201, 187, 142), (548, 104), (1012, 104), 2)
+        self.draw_wrapped_centered(
+            "Escolha o servidor padrão ou informe um endereço manual.",
+            pygame.Rect(560, 116, 440, 48), 38, self.font, TEXT, 24,
         )
 
-        host_box = self.menu_inputs["host"]
-        port_box = self.menu_inputs["port"]
-        host_box.rect = pygame.Rect(x, card.y + 150, 330, 42)
-        port_box.rect = pygame.Rect(x + 350, card.y + 150, 120, 42)
-        host_box.label = "IP ou endereço"
-        port_box.label = "Porta"
-        host_box.draw(self.screen, self.font, self.font_small)
-        port_box.draw(self.screen, self.font, self.font_small)
+        self.draw_text("Servidor da partida", (panel.x + 34, panel.y + 34), self.font_big, DARK)
+        self.add_primary_button(
+            pygame.Rect(panel.x + 34, panel.y + 90, 316, 52),
+            "Usar servidor padrão",
+            self.use_default_server,
+            enabled=True,
+        )
+        self.add_outline_button(
+            pygame.Rect(panel.x + 34, panel.y + 154, 316, 52),
+            "Servidor manual",
+            self.enable_manual_server,
+            enabled=True,
+            selected=self.manual_server_mode,
+        )
 
-        preview = build_server_url(host_box.value, port_box.value)
-        self.draw_wrapped(f"Conexão: {preview}", x, card.y + 212, 64, self.font_small, DARK, 20)
+        if self.manual_server_mode:
+            self.draw_labeled_input("IP ou domínio", self.menu_inputs["host"], pygame.Rect(panel.x + 34, panel.y + 254, 220, 42))
+            self.draw_labeled_input("Porta", self.menu_inputs["port"], pygame.Rect(panel.x + 270, panel.y + 254, 80, 42))
+            self.add_primary_button(
+                pygame.Rect(panel.x + 34, panel.y + 330, 202, 50),
+                "Salvar servidor",
+                self.save_manual_server,
+                enabled=True,
+            )
+            self.add_outline_button(
+                pygame.Rect(panel.x + 248, panel.y + 330, 102, 50),
+                "Voltar",
+                lambda: setattr(self, "ui_mode", "connection"),
+                enabled=True,
+            )
+        else:
+            status_rect = pygame.Rect(panel.x + 34, panel.y + 250, 316, 76)
+            self.draw_round_rect(status_rect, (236, 242, 223), (184, 198, 145), radius=18)
+            self.draw_center_text("Servidor padrão selecionado", status_rect, self.font, DARK)
+            self.add_outline_button(
+                pygame.Rect(panel.x + 98, panel.y + 350, 188, 50),
+                "Voltar",
+                lambda: setattr(self, "ui_mode", "connection"),
+                enabled=True,
+            )
+
         if self.connection_error:
-            self.draw_wrapped("Erro: " + self.connection_error, x, card.y + 242, 64, self.font_small, RED, 20)
-
-        self.add_button(pygame.Rect(x, card.bottom - 66, 150, 42), "Salvar", self.apply_server_settings, enabled=True)
-        self.add_button(pygame.Rect(x + 166, card.bottom - 66, 150, 42), "Usar padrão", self.reset_server_settings, enabled=True)
-        self.add_button(pygame.Rect(x + 332, card.bottom - 66, 138, 42), "Fechar", self.toggle_server_settings, enabled=True)
+            self.draw_wrapped("Erro: " + self.connection_error, panel.x + 34, panel.bottom - 46, 32, self.font_small, RED, 18)
 
     def open_multiplayer_menu(self) -> None:
         self.ui_mode = "connection"
@@ -731,7 +797,6 @@ class GreenImpactClient:
         self.create_local_count = None
         self.menu_inputs["name"].value = self.home_name_input.value.strip() or "Jogador"
         self.connection_error = None
-        self.show_server_settings = False
 
     def ensure_local_name_inputs(self) -> None:
         """Garante um campo de nome independente para cada jogador local."""
@@ -776,70 +841,66 @@ class GreenImpactClient:
 
     def draw_home_menu(self) -> None:
         self.screen.fill(BG)
-        if self.board_img:
-            self.screen.blit(self.board_img, self.board_rect)
-        else:
-            pygame.draw.rect(self.screen, (210, 230, 190), self.board_rect, border_radius=16)
+        header_rect, board_rect, panel = self.draw_pc_home_background()
 
-        panel = pygame.Rect(535, 20, 720, 682)
-        pygame.draw.rect(self.screen, PANEL, panel, border_radius=18)
-        pygame.draw.rect(self.screen, DARK, panel, width=2, border_radius=18)
-        x = panel.x + 48
-
+        logo_card = pygame.Rect(header_rect.x + 4, header_rect.y + 6, 274, 96)
+        self.draw_round_rect(logo_card, (247, 243, 228), (210, 195, 145), radius=28)
         if self.logo_img:
-            self.screen.blit(self.logo_img, (x + 170, panel.y + 14))
+            logo = pygame.transform.smoothscale(self.logo_img, (220, 110))
+            self.screen.blit(logo, (logo_card.x + 18, logo_card.y - 4))
         else:
-            self.draw_text("GREEN IMPACT", (x + 180, panel.y + 42), self.font_title, DARK)
+            self.draw_text("GREEN IMPACT", (logo_card.x + 32, logo_card.y + 28), self.font_title, DARK)
 
-        self.draw_text("Menu principal", (x, panel.y + 178), self.font_big, DARK)
-        self.draw_wrapped(
-            "Escolha se quer jogar sozinho, criar/entrar em uma partida multiplayer ou ler as regras do Green Impact.",
-            x,
-            panel.y + 222,
-            72,
-            self.font_small,
-            TEXT,
-            22,
+        title_rect = pygame.Rect(430, 26, 520, 46)
+        self.draw_center_text("Green Impact", title_rect, self.font_title, DARK)
+        pygame.draw.line(self.screen, (201, 187, 142), (548, 104), (1012, 104), 2)
+        subtitle_rect = pygame.Rect(470, 116, 460, 52)
+        self.draw_wrapped_centered(
+            "Jogue com amigos e construa um futuro sustentável!",
+            subtitle_rect, 34, self.font, TEXT, 24,
         )
 
+        how_rect = pygame.Rect(40, 668, 186, 46)
+        self.add_outline_button(how_rect, "Como jogar", lambda: asyncio.create_task(self.open_rules_from_game()), enabled=True)
+        quote_rect = pygame.Rect(398, 658, 350, 56)
+        self.draw_round_rect(quote_rect, (248, 244, 229), (210, 195, 145), radius=24)
+        self.draw_wrapped_centered(
+            "Cada escolha sustentável nos aproxima de um amanhã melhor.",
+            pygame.Rect(quote_rect.x + 16, quote_rect.y + 8, quote_rect.w - 32, quote_rect.h - 10),
+            34, self.font_small, TEXT, 18,
+        )
+
+        self.home_name_input.rect = pygame.Rect(panel.x + 44, panel.y + 96, 296, 42)
+        self.home_name_input.label = "Seu nome"
         self.home_name_input.draw(self.screen, self.font, self.font_small)
 
-        self.add_button(
-            pygame.Rect(610, 438, 300, 44),
+        self.add_primary_button(
+            pygame.Rect(panel.x + 34, panel.y + 186, 316, 50),
             "Um jogador",
             lambda: asyncio.create_task(self.start_single_player()),
             enabled=not self.connecting,
         )
-        self.add_button(
-            pygame.Rect(610, 492, 300, 44),
+        self.add_outline_button(
+            pygame.Rect(panel.x + 34, panel.y + 248, 316, 50),
             "Multijogador online",
             self.open_multiplayer_menu,
             enabled=not self.connecting,
+            selected=True,
         )
-        self.add_button(
-            pygame.Rect(610, 546, 300, 44),
+        self.add_outline_button(
+            pygame.Rect(panel.x + 34, panel.y + 310, 316, 50),
             "Multijogador local",
             self.open_local_multiplayer_setup,
             enabled=not self.connecting,
         )
-        self.add_button(
-            pygame.Rect(610, 600, 300, 44),
-            "Como jogar",
-            lambda: asyncio.create_task(self.open_rules_from_game()),
-            enabled=True,
-        )
 
-        self.draw_wrapped(
-            f"No modo Um jogador, o jogo abre um servidor local automaticamente. IP local para multiplayer na mesma rede: {self.lan_ip}",
-            x,
-            640,
-            82,
-            self.font_small,
-            TEXT,
-            22,
-        )
-        if self.connection_error:
-            self.draw_wrapped("Erro: " + self.connection_error, x, 668, 82, self.font_small, RED, 22)
+        self.draw_text("Selecionar servidor", (panel.x + 34, panel.y + 386), self.font, DARK)
+        server_card = pygame.Rect(panel.x + 30, panel.y + 420, 268, 56)
+        self.draw_round_rect(server_card, (236, 242, 223), (184, 198, 145), radius=18)
+        server_status = "Servidor personalizado" if self.manual_server_mode else "Servidor padrão"
+        self.draw_center_text(server_status, server_card, self.font_small, DARK)
+        self.add_gear_button(pygame.Rect(panel.x + 308, panel.y + 424, 46, 46), self.open_server_selector)
+
 
 
     def draw_local_setup(self) -> None:
@@ -928,7 +989,7 @@ class GreenImpactClient:
             ("Sorte/Revés", "Casas com símbolo de planta ativam um bônus ou revés de créditos de carbono em vez de pergunta."),
             ("Créditos", "Você começa com 3 créditos de carbono. Ao acertar, ganha créditos conforme a dificuldade. As ajudas custam 3 créditos."),
             ("Erro", "Ao errar, volta ao Início e perde todos os créditos. Se errar novamente depois do reinício, é eliminado."),
-            ("Parar", "Volta para o início e perde metade do saldo."),
+            ("Parar", "Volta para o início, perde metade do saldo e deixa de participar das próximas rodadas."),
             ("Ajudas", "Eliminar 2 alternativas, Pesquisa, Especialista e Pular pergunta. Só é possível usar uma ajuda por rodada."),
             ("Vitória", "Vence quem completar o percurso primeiro. Se houver empate, ganha quem tiver mais créditos."),
         ]
@@ -940,69 +1001,70 @@ class GreenImpactClient:
 
     def draw_menu(self) -> None:
         self.screen.fill(BG)
-        if self.board_img:
-            self.screen.blit(self.board_img, self.board_rect)
-        else:
-            pygame.draw.rect(self.screen, (210, 230, 190), self.board_rect, border_radius=16)
+        header_rect, board_rect, panel = self.draw_pc_home_background()
 
-        panel = pygame.Rect(535, 20, 720, 682)
-        pygame.draw.rect(self.screen, PANEL, panel, border_radius=18)
-        pygame.draw.rect(self.screen, DARK, panel, width=2, border_radius=18)
-        x = panel.x + 48
-        y = panel.y + 34
-
+        logo_card = pygame.Rect(header_rect.x + 4, header_rect.y + 6, 274, 96)
+        self.draw_round_rect(logo_card, (247, 243, 228), (210, 195, 145), radius=28)
         if self.logo_img:
-            self.screen.blit(self.logo_img, (x + 170, panel.y + 12))
-            y = panel.y + 170
-        else:
-            self.draw_text("GREEN IMPACT", (x + 160, panel.y + 42), self.font_title, DARK)
-            y = panel.y + 170
+            logo = pygame.transform.smoothscale(self.logo_img, (220, 110))
+            self.screen.blit(logo, (logo_card.x + 18, logo_card.y - 4))
 
-        self.draw_text("Multijogador online", (x, y), self.font_big, DARK)
-        self.draw_text("Servidor", (panel.right - 160, y + 12), self.font_small, DARK)
-        self.add_gear_button(
-            pygame.Rect(panel.right - 82, y - 3, 48, 48),
-            self.toggle_server_settings,
+        title_rect = pygame.Rect(400, 26, 612, 46)
+        self.draw_center_text("Multijogador online", title_rect, self.font_title, DARK)
+        pygame.draw.line(self.screen, (201, 187, 142), (548, 104), (1012, 104), 2)
+        self.draw_wrapped_centered(
+            "Jogue com amigos e construa um futuro sustentável!",
+            pygame.Rect(560, 116, 440, 48), 34, self.font, TEXT, 24,
+        )
+
+        # Mantém o botão acima do tabuleiro, longe do log de conexão no rodapé.
+        how_rect = pygame.Rect(40, 116, 174, 42)
+        self.add_outline_button(how_rect, "Como jogar", lambda: asyncio.create_task(self.open_rules_from_game()), enabled=True)
+        quote_rect = pygame.Rect(398, 658, 350, 56)
+        self.draw_round_rect(quote_rect, (248, 244, 229), (210, 195, 145), radius=24)
+        self.draw_wrapped_centered(
+            "Cada escolha sustentável nos aproxima de um amanhã melhor.",
+            pygame.Rect(quote_rect.x + 16, quote_rect.y + 8, quote_rect.w - 32, quote_rect.h - 10),
+            34, self.font_small, TEXT, 18,
+        )
+
+        self.draw_labeled_input("Seu nome", self.menu_inputs["name"], pygame.Rect(panel.x + 44, panel.y + 52, 296, 40))
+        self.draw_labeled_input("Código da sala", self.menu_inputs["room"], pygame.Rect(panel.x + 44, panel.y + 124, 296, 40))
+
+        self.add_primary_button(
+            pygame.Rect(panel.x + 34, panel.y + 184, 316, 46),
+            "Criar nova sala",
+            lambda: asyncio.create_task(self.connect_from_menu(create_room=True)),
             enabled=not self.connecting,
         )
-        y += 46
-        self.draw_wrapped(
-            "Crie uma sala ou entre usando o código recebido. Para trocar o servidor, abra a engrenagem ao lado do título.",
-            x, y, 72, self.font_small, TEXT, 22,
+        self.add_outline_button(
+            pygame.Rect(panel.x + 34, panel.y + 240, 316, 46),
+            "Entrar com código",
+            lambda: asyncio.create_task(self.connect_from_menu(create_room=False)),
+            enabled=not self.connecting,
         )
-        y += 70
 
-        name_box = self.menu_inputs["name"]
-        name_box.rect = pygame.Rect(x, y + 24, 300, 42)
-        name_box.label = "Seu nome"
-        name_box.draw(self.screen, self.font, self.font_small)
-        y += 86
-
-        room_box = self.menu_inputs["room"]
-        room_box.rect = pygame.Rect(x, y + 24, 210, 42)
-        room_box.label = "Código da sala"
-        room_box.draw(self.screen, self.font, self.font_small)
-        self.draw_wrapped("O código aparece para quem criou a sala. Ex.: MDNI.", x + 230, y + 26, 44, self.font_small, TEXT, 21)
-        y += 92
-
-        controls_enabled = not self.connecting and not self.show_server_settings
-        self.add_button(pygame.Rect(x, y, 230, 48), "Criar nova sala", lambda: asyncio.create_task(self.connect_from_menu(create_room=True)), enabled=controls_enabled)
-        self.add_button(pygame.Rect(x + 250, y, 230, 48), "Entrar com código", lambda: asyncio.create_task(self.connect_from_menu(create_room=False)), enabled=controls_enabled)
-        y += 62
-        self.add_button(pygame.Rect(x, y, 260, 46), "Abrir servidor local", lambda: asyncio.create_task(self.start_local_and_create()), enabled=controls_enabled)
-        self.add_button(pygame.Rect(x + 280, y, 140, 46), "Voltar", lambda: setattr(self, "ui_mode", "home"), enabled=not self.show_server_settings)
-        self.add_button(pygame.Rect(x + 440, y, 160, 46), "Como jogar", lambda: asyncio.create_task(self.open_rules_from_game()), enabled=not self.show_server_settings)
-
-        current_server = build_server_url(self.menu_inputs["host"].value, self.menu_inputs["port"].value)
-        self.draw_wrapped(
-            f"Servidor selecionado: {current_server}",
-            x, panel.bottom - 70, 70, self.font_small, DARK, 20,
+        self.draw_center_text("Outras opções", pygame.Rect(panel.x + 34, panel.y + 294, 316, 22), self.font_small, TEXT)
+        self.add_outline_button(
+            pygame.Rect(panel.x + 34, panel.y + 320, 150, 54),
+            "Multijogador local",
+            self.open_local_multiplayer_setup,
+            enabled=not self.connecting,
         )
-        if self.connection_error and not self.show_server_settings:
-            self.draw_wrapped("Erro: " + self.connection_error, x, panel.bottom - 112, 72, self.font_small, RED, 22)
+        self.add_outline_button(
+            pygame.Rect(panel.x + 200, panel.y + 320, 150, 54),
+            "Menu",
+            lambda: setattr(self, "ui_mode", "home"),
+            enabled=True,
+        )
 
-        if self.show_server_settings:
-            self.draw_server_settings_overlay(panel)
+        self.draw_text("Selecionar servidor", (panel.x + 34, panel.y + 390), self.font, DARK)
+        server_card = pygame.Rect(panel.x + 30, panel.y + 420, 268, 48)
+        self.draw_round_rect(server_card, (236, 242, 223), (184, 198, 145), radius=16)
+        server_status = "Servidor personalizado" if self.manual_server_mode else "Servidor padrão"
+        self.draw_center_text(server_status, server_card, self.font_small, DARK)
+        self.add_gear_button(pygame.Rect(panel.x + 308, panel.y + 421, 46, 46), self.open_server_selector)
+
 
     def draw_connecting(self) -> None:
         self.screen.fill(BG)
@@ -1013,7 +1075,7 @@ class GreenImpactClient:
         x, y = right.x + 42, right.y + 230
         self.draw_text("Conectando...", (x, y), self.font_title, DARK)
         y += 62
-        self.draw_wrapped(f"Servidor: {self.server_url}", x, y, 70, self.font_small)
+        self.draw_wrapped("Conectando ao servidor selecionado...", x, y, 70, self.font_small)
         y += 40
         if self.connection_error:
             self.draw_wrapped("Erro: " + self.connection_error, x, y, 70, self.font_small, RED)
@@ -1063,113 +1125,27 @@ class GreenImpactClient:
                 label = self.font_small.render(initial, True, WHITE)
                 self.screen.blit(label, label.get_rect(center=(x, y)))
 
-    def remaining_seconds(self) -> int:
-        if not self.state or not self.state.get("current_question") or not self.state.get("deadline_ts"):
-            return 0
-        # Arredondar para cima impede o HUD de mostrar 0 antes do prazo real.
-        return max(0, math.ceil(float(self.state["deadline_ts"]) - (time.time() + self.server_delta)))
 
-    def draw_card(self, rect: pygame.Rect, fill: tuple[int, int, int], border: tuple[int, int, int] = DARK, width: int = 2, radius: int = 12) -> None:
-        pygame.draw.rect(self.screen, fill, rect, border_radius=radius)
-        pygame.draw.rect(self.screen, border, rect, width=width, border_radius=radius)
 
-    def draw_centered(self, text: str, rect: pygame.Rect, font: pygame.font.Font, color: tuple[int, int, int] = TEXT) -> None:
-        surface = font.render(str(text), True, color)
-        self.screen.blit(surface, surface.get_rect(center=rect.center))
 
-    def draw_turn_banner(self, x: int, y: int, width: int, cp: dict[str, Any] | None, my_turn: bool, compact: bool = False) -> int:
-        height = 52 if compact else 58
+
+
+
+
+
+
+    def draw_mini_event_log(self, x: int, y: int, width: int, compact: bool = False) -> int:
+        events = list((self.state or {}).get("event_log") or [])[-1:]
+        height = 44 if compact else 48
         rect = pygame.Rect(x, y, width, height)
-        self.draw_card(rect, (226, 240, 205), DARK, 2, 12)
-        if not cp:
-            self.draw_centered("Aguardando próximo jogador", rect, self.font_turn if not compact else self.font, DARK)
-            return y + height + 7
-        phase = (self.state or {}).get("turn_phase")
-        if phase in {"turn_result", "luck_result"}:
-            heading = f"RESULTADO DE {cp.get('name')}"
-        elif my_turn and not (self.state or {}).get("local_multiplayer"):
-            heading = f"SUA VEZ: {cp.get('name')}"
-        else:
-            heading = f"VEZ DE {cp.get('name')}"
-        heading_font = self.font_turn if not compact else self.font
-        heading_surface = heading_font.render(heading, True, DARK)
-        self.screen.blit(heading_surface, heading_surface.get_rect(centerx=rect.centerx, y=rect.y + 5))
-        details = f"casa {track_label(int(cp.get('position', 0)), (self.state or {}).get('game_mode', 'dice_board'))} | saldo: {cp.get('credits')} créditos"
-        detail_surface = self.font_tiny.render(details, True, TEXT)
-        self.screen.blit(detail_surface, detail_surface.get_rect(centerx=rect.centerx, bottom=rect.bottom - 5))
-        return y + height + 7
-
-    def draw_balance_card(self, x: int, y: int, width: int, cp: dict[str, Any] | None, compact: bool = False) -> int:
-        height = 42 if compact else 48
-        rect = pygame.Rect(x, y, width, height)
-        self.draw_card(rect, (232, 244, 213), DARK, 2, 10)
-        saldo = int((cp or {}).get("credits", 0))
-        cost_color = DARK if saldo >= HELP_COST else RED
-        cost = self.font_tiny.render(f"Cada ajuda custa {HELP_COST} créditos", True, cost_color)
-        if compact:
-            balance = self.font_button_small.render(f"SALDO DE CARBONO: {saldo} créditos", True, DARK)
-            self.screen.blit(balance, (rect.x + 10, rect.y + 10))
-        else:
-            title = self.font_button_small.render("SALDO DE CARBONO", True, DARK)
-            value = self.font.render(f"{saldo} créditos", True, DARK)
-            self.screen.blit(title, (rect.x + 12, rect.y + 5))
-            self.screen.blit(value, (rect.x + 190, rect.y + 3))
-        self.screen.blit(cost, (rect.right - cost.get_width() - 10, rect.y + 12))
-        return y + height + 6
-
-    def draw_help_section(self, x: int, y: int, width: int, cp: dict[str, Any] | None, my_turn: bool, compact: bool = False) -> int:
-        saldo = int((cp or {}).get("credits", 0))
-        help_used = bool((self.state or {}).get("help_used_this_turn"))
-        disabled = (not my_turn) or help_used or saldo < HELP_COST
-        header_h = 27 if compact else 31
-        btn_h = 32 if compact else 36
-        gap = 6
-        section_h = header_h + btn_h * 2 + gap * 3
-        rect = pygame.Rect(x, y, width, section_h)
-        self.draw_card(rect, HELP_CARD, (165, 120, 20), 2, 11)
-        status = f"AJUDAS — custo {HELP_COST} cada; não são respostas"
-        if help_used:
-            status += " | já usada"
-        elif saldo < HELP_COST:
-            status += " | saldo insuficiente"
-        self.draw_text(status, (x + 10, y + 5), self.font_tiny if compact else self.font_button_small, RED if disabled else DARK)
-        col_gap = 7
-        btn_w = (width - 20 - col_gap) // 2
-        labels = [
-            (f"Eliminar 2 respostas\nCusto: {HELP_COST}", {"type": "help", "help": "eliminate2"}),
-            (f"Pesquisa +{RESEARCH_BONUS_SECONDS}s\nCusto: {HELP_COST}", {"type": "help", "help": "research"}),
-            (f"Dica do especialista\nCusto: {HELP_COST}", {"type": "help", "help": "expert"}),
-            (f"Pular pergunta\nCusto: {HELP_COST}", {"type": "help", "help": "skip"}),
-        ]
-        start_y = y + header_h
-        for i, (label, payload) in enumerate(labels):
-            bx = x + 7 + (i % 2) * (btn_w + col_gap)
-            by = start_y + (i // 2) * (btn_h + gap)
-            self.add_button(
-                pygame.Rect(bx, by, btn_w, btn_h), label,
-                lambda p=payload: self.fire_and_forget(p),
-                enabled=not disabled,
-                fill_color=HELP_FILL,
-                hover_color=(252, 237, 174),
-                border_color=(145, 105, 20),
-                font=self.font_tiny,
-            )
-        return y + section_h + 6
-
-    def draw_stop_section(self, x: int, y: int, width: int, my_turn: bool, compact: bool = False) -> int:
-        height = 40 if compact else 44
-        rect = pygame.Rect(x, y, width, height)
-        self.draw_card(rect, WARNING_FILL, RED, 2, 10)
-        self.draw_text("PARAR", (x + 10, y + 3), self.font_tiny, RED)
-        self.draw_text("Volta ao início e perde metade do saldo", (x + 10, y + 20), self.font_tiny, TEXT)
-        btn_w = 190 if width > 520 else 162
-        self.add_button(
-            pygame.Rect(rect.right - btn_w - 6, rect.y + 5, btn_w, rect.h - 10),
-            "Parar", lambda: self.fire_and_forget({"type": "stop"}),
-            enabled=my_turn, fill_color=ERROR_FILL, hover_color=(255, 226, 220),
-            border_color=RED, text_color=RED, font=self.font_button_small,
-        )
-        return y + height + 4
+        self.draw_card(rect, (239, 245, 218), SOFT_BORDER, 1, 9)
+        self.draw_text("Histórico", (x + 8, y + 3), self.font_tiny, DARK)
+        if events:
+            line = "• " + str(events[-1])
+            max_chars = 78 if width > 550 else 49
+            shown = line if len(line) <= max_chars else line[: max_chars - 1] + "…"
+            self.draw_text(shown, (x + 8, y + 22), self.font_tiny, TEXT)
+        return y + height + 5
 
     def draw_consequence(self, x: int, y: int, width: int, bottom: int, cp: dict[str, Any] | None, my_turn: bool, compact: bool = False) -> None:
         result = dict((self.state or {}).get("turn_result") or {})
@@ -1217,18 +1193,113 @@ class GreenImpactClient:
             enabled=my_turn, fill_color=(232, 244, 213), font=self.font_button_small,
         )
 
-    def draw_mini_event_log(self, x: int, y: int, width: int, compact: bool = False) -> int:
-        events = list((self.state or {}).get("event_log") or [])[-1:]
-        height = 44 if compact else 48
+    def draw_stop_section(self, x: int, y: int, width: int, my_turn: bool, compact: bool = False) -> int:
+        height = 40 if compact else 44
         rect = pygame.Rect(x, y, width, height)
-        self.draw_card(rect, (239, 245, 218), SOFT_BORDER, 1, 9)
-        self.draw_text("Histórico", (x + 8, y + 3), self.font_tiny, DARK)
-        if events:
-            line = "• " + str(events[-1])
-            max_chars = 78 if width > 550 else 49
-            shown = line if len(line) <= max_chars else line[: max_chars - 1] + "…"
-            self.draw_text(shown, (x + 8, y + 22), self.font_tiny, TEXT)
-        return y + height + 5
+        self.draw_card(rect, WARNING_FILL, RED, 2, 10)
+        self.draw_text("PARAR", (x + 10, y + 3), self.font_tiny, RED)
+        self.draw_text("Volta ao início e perde metade do saldo", (x + 10, y + 20), self.font_tiny, TEXT)
+        btn_w = 190 if width > 520 else 162
+        self.add_button(
+            pygame.Rect(rect.right - btn_w - 6, rect.y + 5, btn_w, rect.h - 10),
+            "Parar", lambda: self.fire_and_forget({"type": "stop"}),
+            enabled=my_turn, fill_color=ERROR_FILL, hover_color=(255, 226, 220),
+            border_color=RED, text_color=RED, font=self.font_button_small,
+        )
+        return y + height + 4
+
+    def draw_help_section(self, x: int, y: int, width: int, cp: dict[str, Any] | None, my_turn: bool, compact: bool = False) -> int:
+        saldo = int((cp or {}).get("credits", 0))
+        help_used = bool((self.state or {}).get("help_used_this_turn"))
+        disabled = (not my_turn) or help_used or saldo < HELP_COST
+        header_h = 27 if compact else 34
+        btn_h = 32 if compact else 46
+        gap = 6 if compact else 8
+        section_h = header_h + btn_h * 2 + gap * 3
+        rect = pygame.Rect(x, y, width, section_h)
+        self.draw_card(rect, HELP_CARD, (165, 120, 20), 2, 11)
+        status = f"AJUDAS — custo {HELP_COST} cada; não são respostas"
+        if help_used:
+            status += " | já usada"
+        elif saldo < HELP_COST:
+            status += " | saldo insuficiente"
+        self.draw_text(status, (x + 10, y + 6), self.font_tiny if compact else self.font_button_small, RED if disabled else DARK)
+        col_gap = 7
+        btn_w = (width - 20 - col_gap) // 2
+        labels = [
+            (f"Eliminar 2 respostas\nCusto: {HELP_COST}", {"type": "help", "help": "eliminate2"}),
+            (f"Pesquisa +{RESEARCH_BONUS_SECONDS}s\nCusto: {HELP_COST}", {"type": "help", "help": "research"}),
+            (f"Dica do especialista\nCusto: {HELP_COST}", {"type": "help", "help": "expert"}),
+            (f"Pular pergunta\nCusto: {HELP_COST}", {"type": "help", "help": "skip"}),
+        ]
+        start_y = y + header_h
+        for i, (label, payload) in enumerate(labels):
+            bx = x + 7 + (i % 2) * (btn_w + col_gap)
+            by = start_y + (i // 2) * (btn_h + gap)
+            self.add_button(
+                pygame.Rect(bx, by, btn_w, btn_h), label,
+                lambda p=payload: self.fire_and_forget(p),
+                enabled=not disabled,
+                fill_color=HELP_FILL,
+                hover_color=(252, 237, 174),
+                border_color=(145, 105, 20),
+                font=self.font_tiny if compact else self.font_small,
+            )
+        return y + section_h + 6
+
+    def draw_balance_card(self, x: int, y: int, width: int, cp: dict[str, Any] | None, compact: bool = False) -> int:
+        height = 42 if compact else 48
+        rect = pygame.Rect(x, y, width, height)
+        self.draw_card(rect, (232, 244, 213), DARK, 2, 10)
+        saldo = int((cp or {}).get("credits", 0))
+        cost_color = DARK if saldo >= HELP_COST else RED
+        cost = self.font_tiny.render(f"Cada ajuda custa {HELP_COST} créditos", True, cost_color)
+        if compact:
+            balance = self.font_button_small.render(f"SALDO DE CARBONO: {saldo} créditos", True, DARK)
+            self.screen.blit(balance, (rect.x + 10, rect.y + 10))
+        else:
+            title = self.font_button_small.render("SALDO DE CARBONO", True, DARK)
+            value = self.font.render(f"{saldo} créditos", True, DARK)
+            self.screen.blit(title, (rect.x + 12, rect.y + 5))
+            self.screen.blit(value, (rect.x + 190, rect.y + 3))
+        self.screen.blit(cost, (rect.right - cost.get_width() - 10, rect.y + 12))
+        return y + height + 6
+
+    def draw_turn_banner(self, x: int, y: int, width: int, cp: dict[str, Any] | None, my_turn: bool, compact: bool = False) -> int:
+        height = 52 if compact else 58
+        rect = pygame.Rect(x, y, width, height)
+        self.draw_card(rect, (226, 240, 205), DARK, 2, 12)
+        if not cp:
+            self.draw_centered("Aguardando próximo jogador", rect, self.font_turn if not compact else self.font, DARK)
+            return y + height + 7
+        phase = (self.state or {}).get("turn_phase")
+        if phase in {"turn_result", "luck_result"}:
+            heading = f"RESULTADO DE {cp.get('name')}"
+        elif my_turn and not (self.state or {}).get("local_multiplayer"):
+            heading = f"SUA VEZ: {cp.get('name')}"
+        else:
+            heading = f"VEZ DE {cp.get('name')}"
+        heading_font = self.font_turn if not compact else self.font
+        heading_surface = heading_font.render(heading, True, DARK)
+        self.screen.blit(heading_surface, heading_surface.get_rect(centerx=rect.centerx, y=rect.y + 5))
+        details = f"casa {track_label(int(cp.get('position', 0)), (self.state or {}).get('game_mode', 'dice_board'))} | saldo: {cp.get('credits')} créditos"
+        detail_surface = self.font_tiny.render(details, True, TEXT)
+        self.screen.blit(detail_surface, detail_surface.get_rect(centerx=rect.centerx, bottom=rect.bottom - 5))
+        return y + height + 7
+
+    def draw_centered(self, text: str, rect: pygame.Rect, font: pygame.font.Font, color: tuple[int, int, int] = TEXT) -> None:
+        surface = font.render(str(text), True, color)
+        self.screen.blit(surface, surface.get_rect(center=rect.center))
+
+    def draw_card(self, rect: pygame.Rect, fill: tuple[int, int, int], border: tuple[int, int, int] = DARK, width: int = 2, radius: int = 12) -> None:
+        pygame.draw.rect(self.screen, fill, rect, border_radius=radius)
+        pygame.draw.rect(self.screen, border, rect, width=width, border_radius=radius)
+
+    def remaining_seconds(self) -> int:
+        if not self.state or not self.state.get("current_question") or not self.state.get("deadline_ts"):
+            return 0
+        # Arredondar para cima impede o HUD de mostrar 0 antes do prazo real.
+        return max(0, math.ceil(float(self.state["deadline_ts"]) - (time.time() + self.server_delta)))
 
     def draw_players_panel(self, x: int, y: int) -> int:
         if not self.state:
@@ -1583,6 +1654,8 @@ class GreenImpactClient:
                 self.draw_how_to_play()
             elif self.ui_mode == "local_setup":
                 self.draw_local_setup()
+            elif self.ui_mode == "server_settings":
+                self.draw_server_settings()
             else:
                 self.draw_menu()
         else:
@@ -1610,12 +1683,13 @@ class GreenImpactClient:
                     if self.in_menu:
                         if event.key == pygame.K_ESCAPE and self.ui_mode == "how_to_play":
                             self.close_rules()
-                        elif event.key == pygame.K_ESCAPE and self.ui_mode == "connection" and self.show_server_settings:
-                            self.toggle_server_settings()
                         elif event.key == pygame.K_ESCAPE and self.ui_mode != "home":
                             self.ui_mode = "home"
                         elif self.ui_mode == "connection":
-                            for key in self.menu_input_keys():
+                            for key in ("name", "room"):
+                                self.menu_inputs[key].handle_key(event)
+                        elif self.ui_mode == "server_settings":
+                            for key in ("host", "port"):
                                 self.menu_inputs[key].handle_key(event)
                         elif self.ui_mode == "local_setup":
                             self.ensure_local_name_inputs()
@@ -1629,9 +1703,13 @@ class GreenImpactClient:
                     if self.in_menu:
                         clicked_input = False
                         if self.ui_mode == "connection":
-                            active_keys = set(self.menu_input_keys())
                             for key, box in self.menu_inputs.items():
-                                box.active = key in active_keys and box.rect.collidepoint(event.pos)
+                                box.active = key in {"name", "room"} and box.rect.collidepoint(event.pos)
+                                clicked_input = clicked_input or box.active
+                            self.home_name_input.active = False
+                        elif self.ui_mode == "server_settings":
+                            for key, box in self.menu_inputs.items():
+                                box.active = self.manual_server_mode and key in {"host", "port"} and box.rect.collidepoint(event.pos)
                                 clicked_input = clicked_input or box.active
                             self.home_name_input.active = False
                         elif self.ui_mode == "local_setup":

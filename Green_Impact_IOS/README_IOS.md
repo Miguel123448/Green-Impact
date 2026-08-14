@@ -36,19 +36,3 @@ Use este mesmo `main.py`, a pasta `assets/` e a pasta `data/` ao criar o projeto
 ## Atualização: multijogador local e novo tabuleiro
 
 Incluído modo **Multijogador local** para 2 a 4 jogadores no mesmo dispositivo, além do multijogador online com o novo tabuleiro (`assets/board_new.jpg`). O multijogador agora usa dado, casas de pergunta por dificuldade e casas de sorte/revés com símbolo de planta. O modo **Um jogador** mantém o tabuleiro original.
-
-## Configuração manual do servidor
-
-No **Multijogador online**, toque ou clique na engrenagem ao lado de **Servidor**. Informe o IP/domínio e a porta, pressione **Salvar** e depois crie ou entre em uma sala. URLs completas `ws://` e `wss://` também são aceitas.
-
-## Atualização 0.4 — correções da análise
-
-A versão iOS/macOS recebeu a mesma HUD corrigida da versão Kivy Android: jogador da vez em destaque, saldo e custos visíveis, ajudas separadas das respostas, **Parar** no final e consequência clara para acerto, erro, timeout, pular, parar e sorte/revés. O monitor de prazo no servidor local também foi habilitado.
-
-## Frontend mobile 0.5 — mapa em tela cheia
-
-A interface de partida do iOS/macOS foi redesenhada para usar o tabuleiro em tela cheia. As ações aparecem em popups responsivos: lançamento de dado, preparação da pergunta, pergunta, ajudas, consequência e resultado final.
-
-A barra superior mostra sala, jogador da vez, saldo de carbono e posição. A barra inferior permite reabrir a ação atual e consultar jogadores, histórico, regras ou voltar ao menu. O popup pode ser ocultado para visualizar o mapa e reaberto pelo botão **Ação/Pergunta**.
-
-A área segura respeita barras do sistema, navegação por gestos e recortes/notches.

@@ -57,7 +57,3 @@ Esta versão já inclui `assets/app_icon.png` e `assets/app_icon.icns`. O `build
 ## Atualização: multijogador local e novo tabuleiro
 
 Incluído modo **Multijogador local** para 2 a 4 jogadores no mesmo dispositivo, além do multijogador online com o novo tabuleiro (`assets/board_new.jpg`). O multijogador agora usa dado, casas de pergunta por dificuldade e casas de sorte/revés com símbolo de planta. O modo **Um jogador** mantém o tabuleiro original.
-
-## Configuração manual do servidor
-
-No **Multijogador online**, toque ou clique na engrenagem ao lado de **Servidor**. Informe o IP/domínio e a porta, pressione **Salvar** e depois crie ou entre em uma sala. URLs completas `ws://` e `wss://` também são aceitas.

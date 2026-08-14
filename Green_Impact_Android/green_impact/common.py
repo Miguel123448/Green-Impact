@@ -86,9 +86,6 @@ class Room:
     local_multiplayer: bool = False
     last_roll: int | None = None
     special_event: str | None = None
-    # Resultado estruturado da rodada para a interface exibir a consequência
-    # com clareza, sem precisar interpretar uma frase do histórico.
-    turn_result: dict[str, Any] | None = None
 
     def ordered_players(self) -> list[Player]:
         return list(self.players.values())
@@ -114,5 +111,4 @@ class Room:
             "local_multiplayer": self.local_multiplayer,
             "last_roll": self.last_roll,
             "special_event": self.special_event,
-            "turn_result": self.turn_result,
         }

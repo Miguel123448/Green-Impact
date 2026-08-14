@@ -3,7 +3,7 @@
 Esta versão adiciona um menu principal com três opções:
 
 - **Um jogador**: abre um servidor local automaticamente e cria uma sala para jogar sozinho.
-- **Multijogador online**: permite criar ou entrar em uma sala; a engrenagem abre a configuração manual de IP/domínio e porta.
+- **Multijogador**: permite criar uma sala em um IP, entrar por IP/código ou abrir um servidor local para outros jogadores da mesma rede.
 - **Como jogar**: mostra as regras principais dentro do jogo.
 
 ## Rodar pelo Python
@@ -33,11 +33,11 @@ Para a maioria dos testes, basta abrir o `GreenImpactCliente.exe` e usar o menu 
 ## Multiplayer na mesma rede
 
 No computador que vai hospedar a partida, escolha **Multijogador** e depois **Abrir servidor local e criar sala**.
-Os outros jogadores devem abrir o cliente, escolher **Multijogador online**, clicar na **engrenagem**, preencher o IP mostrado na tela do host, a porta `8765`, salvar e informar o código da sala.
+Os outros jogadores devem abrir o cliente, escolher **Multijogador**, preencher o IP mostrado na tela do host, a porta `8765` e o código da sala.
 
 ## IP padrão
 
-A configuração aberta pela **engrenagem** vem preenchida por padrão com `147.15.100.214` e porta `8765`. Ela aceita IP, domínio ou uma URL completa `ws://`/`wss://`.
+O campo **IP do servidor** agora vem preenchido por padrão com `147.15.100.214`.
 A opção **Abrir servidor local e criar sala** continua usando `127.0.0.1` internamente para conectar ao servidor aberto no próprio computador.
 
 
@@ -55,7 +55,3 @@ Esta versão inclui:
 - Casas 1 a 5: perguntas fáceis; casas 6 a 9: perguntas médias; casas 10 a 12: perguntas difíceis.
 - Casas com símbolo de planta: eventos de **sorte/revés**, com bônus ou perda de créditos de carbono.
 - O modo **Um jogador** permanece com o tabuleiro original e a regra anterior.
-
-## Atualização 0.4 — correções da análise
-
-A HUD da partida foi reorganizada: jogador da vez em destaque, respostas e ajudas separadas, saldo e custos visíveis, **Parar** no final e tela de consequência após cada resultado. O timeout agora é controlado também pelo servidor, evitando que a partida fique parada ao chegar a zero.

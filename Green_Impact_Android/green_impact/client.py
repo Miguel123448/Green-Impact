@@ -33,10 +33,6 @@ RED = (180, 40, 40)
 COLOR_ORDER = ["green", "yellow", "red", "blue"]
 COLOR_NAMES = {"green": "Verde", "yellow": "Amarelo", "red": "Vermelho", "blue": "Azul"}
 
-DEFAULT_SERVER_HOST = "127.0.0.1"
-DEFAULT_SERVER_PORT = "8765"
-LOCALHOST = "127.0.0.1"
-
 # Coordenadas aproximadas no tabuleiro original 1024 x 1536.
 BOARD_ORIGINAL_W = 1024
 BOARD_ORIGINAL_H = 1536
@@ -68,13 +64,13 @@ def split_server_url(server_url: str) -> tuple[str, str]:
         value = value.split("/", 1)[0]
     if ":" in value:
         host, port = value.rsplit(":", 1)
-        return host or DEFAULT_SERVER_HOST, port or DEFAULT_SERVER_PORT
-    return value or DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT
+        return host or "127.0.0.1", port or "8765"
+    return value or "127.0.0.1", "8765"
 
 
 def build_server_url(host: str, port: str) -> str:
-    host = (host or DEFAULT_SERVER_HOST).strip()
-    port = (port or DEFAULT_SERVER_PORT).strip()
+    host = (host or "127.0.0.1").strip()
+    port = (port or "8765").strip()
     if host.startswith("ws://") or host.startswith("wss://"):
         return host
     return f"ws://{host}:{port}"
@@ -135,42 +131,6 @@ class Button:
             self.callback()
 
 
-class GearButton(Button):
-    """Botão de engrenagem desenhado com primitivas do pygame.
-
-    O ícone não depende de fonte ou emoji, então funciona da mesma forma no
-    Windows, Android, iOS e macOS.
-    """
-
-    def __init__(self, rect: pygame.Rect, callback: Callable[[], None], enabled: bool = True):
-        super().__init__(rect, "", callback, enabled)
-
-    def draw(self, screen: pygame.Surface, font: pygame.font.Font, small: bool = False) -> None:
-        mouse = pygame.mouse.get_pos()
-        hover = self.rect.collidepoint(mouse)
-        if not self.enabled:
-            fill = (200, 205, 188)
-            border = DISABLED
-            color = (120, 120, 120)
-        elif hover:
-            fill = (226, 238, 203)
-            border = DARK
-            color = DARK
-        else:
-            fill = (239, 245, 218)
-            border = DARK
-            color = DARK
-
-        pygame.draw.rect(screen, fill, self.rect, border_radius=12)
-        pygame.draw.rect(screen, border, self.rect, width=2, border_radius=12)
-        center = self.rect.center
-        for angle in range(0, 360, 45):
-            rad = math.radians(angle)
-            inner = (center[0] + int(math.cos(rad) * 11), center[1] + int(math.sin(rad) * 11))
-            outer = (center[0] + int(math.cos(rad) * 17), center[1] + int(math.sin(rad) * 17))
-            pygame.draw.line(screen, color, inner, outer, width=5)
-        pygame.draw.circle(screen, color, center, 12, width=4)
-        pygame.draw.circle(screen, fill, center, 4)
 
 
 class InputBox:
@@ -224,7 +184,6 @@ class GreenImpactClient:
         self.timeout_sent_for_question: str | None = None
         self.connection_error: str | None = None
         self.connecting = False
-        self.show_server_settings = False
         self.local_server_thread: threading.Thread | None = None
         self.local_server_error: str | None = None
         self.local_server_port = 8765
@@ -243,7 +202,7 @@ class GreenImpactClient:
         self.board_img = self.load_image(ASSET_DIR / "board.jpg", self.board_rect.size)
         self.logo_img = self.load_image(ASSET_DIR / "logo.png", (320, 160), keep_alpha=True)
 
-        initial_host, initial_port = split_server_url(server_url or f"ws://{DEFAULT_SERVER_HOST}:{DEFAULT_SERVER_PORT}")
+        initial_host, initial_port = split_server_url(server_url or "ws://127.0.0.1:8765")
         # Campos do menu. Eles ficam mais abaixo para não sobrepor o título/descrição.
         self.menu_inputs: dict[str, InputBox] = {
             "name": InputBox(pygame.Rect(565, 310, 270, 42), "Seu nome", name or "Jogador"),
@@ -265,8 +224,8 @@ class GreenImpactClient:
 
     async def connect_from_menu(self, create_room: bool) -> None:
         name = self.menu_inputs["name"].value.strip() or "Jogador"
-        host = self.menu_inputs["host"].value.strip() or DEFAULT_SERVER_HOST
-        port = self.menu_inputs["port"].value.strip() or DEFAULT_SERVER_PORT
+        host = self.menu_inputs["host"].value.strip() or "127.0.0.1"
+        port = self.menu_inputs["port"].value.strip() or "8765"
         room = self.menu_inputs["room"].value.strip().upper()
 
         if not create_room and not room:
@@ -290,7 +249,7 @@ class GreenImpactClient:
         self.timeout_sent_for_question = None
 
         try:
-            self.messages.append(f"Conectando em {self.server_url}...")
+            self.messages.append("Conectando ao servidor selecionado...")
             self.ws = await websockets.connect(self.server_url)
             asyncio.create_task(self.listen())
             self.in_menu = False
@@ -334,7 +293,7 @@ class GreenImpactClient:
 
     async def start_local_and_create(self) -> None:
         name = self.menu_inputs["name"].value.strip() or "Jogador"
-        port_text = self.menu_inputs["port"].value.strip() or DEFAULT_SERVER_PORT
+        port_text = self.menu_inputs["port"].value.strip() or "8765"
         try:
             port = int(port_text)
         except ValueError:
@@ -347,8 +306,8 @@ class GreenImpactClient:
             self.connection_error = "Erro ao abrir servidor local: " + self.local_server_error
             self.messages.append(self.connection_error)
             return
-        self.menu_inputs["host"].value = LOCALHOST
-        await self.connect_to(f"ws://{LOCALHOST}:{port}", name, None)
+        self.menu_inputs["host"].value = "127.0.0.1"
+        await self.connect_to(f"ws://127.0.0.1:{port}", name, None)
 
     async def back_to_menu(self) -> None:
         if self.ws:
@@ -443,91 +402,9 @@ class GreenImpactClient:
         self.buttons.append(btn)
         btn.draw(self.screen, self.font_small)
 
-    def add_gear_button(self, rect: pygame.Rect, callback: Callable[[], None], enabled: bool = True) -> None:
-        btn = GearButton(rect, callback, enabled)
-        self.buttons.append(btn)
-        btn.draw(self.screen, self.font_small)
-
-    def menu_input_keys(self) -> tuple[str, ...]:
-        """Retorna apenas os campos que podem receber foco na tela atual."""
-        return ("host", "port") if self.show_server_settings else ("name", "room")
-
-    def toggle_server_settings(self) -> None:
-        self.show_server_settings = not self.show_server_settings
-        for box in self.menu_inputs.values():
-            box.active = False
-        self.connection_error = None
-
-    def reset_server_settings(self) -> None:
-        self.menu_inputs["host"].value = DEFAULT_SERVER_HOST
-        self.menu_inputs["port"].value = DEFAULT_SERVER_PORT
-        self.connection_error = None
-
-    def apply_server_settings(self) -> None:
-        host = self.menu_inputs["host"].value.strip()
-        port_text = self.menu_inputs["port"].value.strip() or DEFAULT_SERVER_PORT
-        if not host:
-            self.connection_error = "Informe o IP ou endereço do servidor."
-            return
-        if not host.startswith(("ws://", "wss://")):
-            try:
-                port = int(port_text)
-            except ValueError:
-                self.connection_error = "A porta precisa ser um número."
-                return
-            if not 1 <= port <= 65535:
-                self.connection_error = "A porta deve estar entre 1 e 65535."
-                return
-            port_text = str(port)
-        self.menu_inputs["host"].value = host
-        self.menu_inputs["port"].value = port_text
-        self.server_url = build_server_url(host, port_text)
-        self.connection_error = None
-        self.show_server_settings = False
-        for box in self.menu_inputs.values():
-            box.active = False
-
-    def draw_server_settings_overlay(self, panel: pygame.Rect) -> None:
-        shade = pygame.Surface(panel.size, pygame.SRCALPHA)
-        shade.fill((18, 77, 48, 58))
-        self.screen.blit(shade, panel.topleft)
-
-        card = pygame.Rect(panel.x + 72, panel.y + 178, panel.w - 144, 360)
-        pygame.draw.rect(self.screen, WHITE, card, border_radius=18)
-        pygame.draw.rect(self.screen, DARK, card, width=3, border_radius=18)
-        x = card.x + 34
-        y = card.y + 28
-        self.draw_text("Servidor online", (x, y), self.font_big, DARK)
-        self.draw_wrapped(
-            "Digite manualmente o IP ou domínio do servidor. A porta padrão é 8765. Também é possível informar uma URL completa começando com ws:// ou wss://.",
-            x,
-            y + 46,
-            62,
-            self.font_small,
-            TEXT,
-            21,
-        )
-
-        host_box = self.menu_inputs["host"]
-        port_box = self.menu_inputs["port"]
-        host_box.rect = pygame.Rect(x, card.y + 150, 330, 42)
-        port_box.rect = pygame.Rect(x + 350, card.y + 150, 120, 42)
-        host_box.label = "IP ou endereço"
-        port_box.label = "Porta"
-        host_box.draw(self.screen, self.font, self.font_small)
-        port_box.draw(self.screen, self.font, self.font_small)
-
-        preview = build_server_url(host_box.value, port_box.value)
-        self.draw_wrapped(f"Conexão: {preview}", x, card.y + 212, 64, self.font_small, DARK, 20)
-        if self.connection_error:
-            self.draw_wrapped("Erro: " + self.connection_error, x, card.y + 242, 64, self.font_small, RED, 20)
-
-        self.add_button(pygame.Rect(x, card.bottom - 66, 150, 42), "Salvar", self.apply_server_settings, enabled=True)
-        self.add_button(pygame.Rect(x + 166, card.bottom - 66, 150, 42), "Usar padrão", self.reset_server_settings, enabled=True)
-        self.add_button(pygame.Rect(x + 332, card.bottom - 66, 138, 42), "Fechar", self.toggle_server_settings, enabled=True)
-
     def draw_menu(self) -> None:
         self.screen.fill(BG)
+        # Painel visual esquerdo.
         if self.board_img:
             self.screen.blit(self.board_img, self.board_rect)
         else:
@@ -536,23 +413,18 @@ class GreenImpactClient:
         panel = pygame.Rect(500, 20, 755, 682)
         pygame.draw.rect(self.screen, PANEL, panel, border_radius=18)
         pygame.draw.rect(self.screen, DARK, panel, width=2, border_radius=18)
-        x = panel.x + 48
+        x, y = panel.x + 48, panel.y + 28
 
         if self.logo_img:
             self.screen.blit(self.logo_img, (x + 170, panel.y + 14))
         else:
             self.draw_text("GREEN IMPACT", (x + 180, panel.y + 42), self.font_title, DARK)
 
+        # Posições fixas evitam que o HUD fique sobreposto em resoluções 1280x720.
         title_y = panel.y + 178
-        self.draw_text("Multijogador online", (x, title_y), self.font_big, DARK)
-        self.draw_text("Servidor", (panel.right - 164, title_y + 12), self.font_small, DARK)
-        self.add_gear_button(
-            pygame.Rect(panel.right - 82, title_y - 3, 48, 48),
-            self.toggle_server_settings,
-            enabled=not self.connecting,
-        )
+        self.draw_text("Menu de conexão", (x, title_y), self.font_big, DARK)
         self.draw_wrapped(
-            "Crie uma sala ou entre com um código. Use a engrenagem para informar manualmente o IP do servidor.",
+            "Escolha como quer jogar: conectar manualmente por IP ou abrir um servidor local neste computador.",
             x,
             title_y + 44,
             72,
@@ -561,49 +433,51 @@ class GreenImpactClient:
             22,
         )
 
-        name_box = self.menu_inputs["name"]
-        name_box.rect = pygame.Rect(565, 334, 300, 42)
-        name_box.label = "Seu nome"
-        name_box.draw(self.screen, self.font, self.font_small)
+        for box in self.menu_inputs.values():
+            box.draw(self.screen, self.font, self.font_small)
 
-        room_box = self.menu_inputs["room"]
-        room_box.rect = pygame.Rect(565, 420, 210, 42)
-        room_box.label = "Código da sala"
-        room_box.draw(self.screen, self.font, self.font_small)
-        self.draw_wrapped("Deixe vazio para criar uma sala nova.", 795, 423, 38, self.font_small, TEXT, 21)
-
-        controls_enabled = not self.connecting and not self.show_server_settings
+        # Botões principais.
         self.add_button(
-            pygame.Rect(565, 500, 220, 44),
-            "Criar sala",
+            pygame.Rect(565, 512, 220, 44),
+            "Criar sala no IP",
             lambda: asyncio.create_task(self.connect_from_menu(create_room=True)),
-            enabled=controls_enabled,
+            enabled=not self.connecting,
         )
         self.add_button(
-            pygame.Rect(805, 500, 220, 44),
+            pygame.Rect(805, 512, 220, 44),
             "Entrar na sala",
             lambda: asyncio.create_task(self.connect_from_menu(create_room=False)),
-            enabled=controls_enabled,
+            enabled=not self.connecting,
         )
         self.add_button(
-            pygame.Rect(565, 558, 460, 46),
+            pygame.Rect(565, 570, 460, 46),
             "Abrir servidor local e criar sala",
             lambda: asyncio.create_task(self.start_local_and_create()),
-            enabled=controls_enabled,
+            enabled=not self.connecting,
         )
 
-        current_server = build_server_url(self.menu_inputs["host"].value, self.menu_inputs["port"].value)
-        self.draw_wrapped(f"Servidor selecionado: {current_server}", 545, 620, 82, self.font_small, DARK, 21)
+        help_y = 632
+        self.draw_wrapped(
+            f"Para jogar no mesmo PC: use servidor local. Para outros computadores da mesma rede, eles devem colocar o IP do seu computador. Possível IP local: {self.lan_ip}",
+            545,
+            help_y,
+            82,
+            self.font_small,
+            TEXT,
+            22,
+        )
         if self.local_server_thread and self.local_server_thread.is_alive():
-            local_status = f"Servidor local ativo: {self.lan_ip}:{self.local_server_port}"
-        else:
-            local_status = f"Possível IP local deste dispositivo: {self.lan_ip}"
-        self.draw_wrapped(local_status, 545, 646, 82, self.font_small, TEXT, 21)
-        if self.connection_error and not self.show_server_settings:
-            self.draw_wrapped("Erro: " + self.connection_error, 545, 674, 82, self.font_small, RED, 22)
-
-        if self.show_server_settings:
-            self.draw_server_settings_overlay(panel)
+            self.draw_wrapped(
+                f"Servidor local ativo na porta {self.local_server_port}. Outros jogadores usam IP {self.lan_ip} e porta {self.local_server_port}.",
+                545,
+                help_y + 44,
+                82,
+                self.font_small,
+                DARK,
+                22,
+            )
+        if self.connection_error:
+            self.draw_wrapped("Erro: " + self.connection_error, 545, 670, 82, self.font_small, RED, 22)
 
     def draw_connecting(self) -> None:
         self.screen.fill(BG)
@@ -614,7 +488,7 @@ class GreenImpactClient:
         x, y = right.x + 42, right.y + 230
         self.draw_text("Conectando...", (x, y), self.font_title, DARK)
         y += 62
-        self.draw_wrapped(f"Servidor: {self.server_url}", x, y, 70, self.font_small)
+        self.draw_wrapped("Conectando ao servidor selecionado...", x, y, 70, self.font_small)
         y += 40
         if self.connection_error:
             self.draw_wrapped("Erro: " + self.connection_error, x, y, 70, self.font_small, RED)
@@ -954,19 +828,15 @@ class GreenImpactClient:
                     self.running = False
                 elif event.type == pygame.KEYDOWN:
                     if self.in_menu:
-                        if event.key == pygame.K_ESCAPE and self.show_server_settings:
-                            self.toggle_server_settings()
-                        else:
-                            for key in self.menu_input_keys():
-                                self.menu_inputs[key].handle_key(event)
+                        for box in self.menu_inputs.values():
+                            box.handle_key(event)
                     elif event.key == pygame.K_ESCAPE:
                         self.running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self.in_menu:
                         clicked_input = False
-                        active_keys = set(self.menu_input_keys())
-                        for key, box in self.menu_inputs.items():
-                            box.active = key in active_keys and box.rect.collidepoint(event.pos)
+                        for box in self.menu_inputs.values():
+                            box.active = box.rect.collidepoint(event.pos)
                             clicked_input = clicked_input or box.active
                         if clicked_input:
                             continue
