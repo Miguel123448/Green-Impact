@@ -9,7 +9,8 @@
       "Investimento em infraestrutura de saneamento básico e proteção de fontes de água",
       "Uso excessivo de produtos químicos na agricultura"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "Pense em medidas estruturais que evitem a contaminação da água desde a captação até o descarte de esgoto."
   },
   {
     "id": "easy-002",
@@ -21,7 +22,8 @@
       "Aumento da produção de carros de luxo",
       "Expansão de parques temáticos"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Procure a alternativa que amplia oportunidades de longo prazo e ajuda as pessoas a romper o ciclo da pobreza."
   },
   {
     "id": "easy-003",
@@ -33,7 +35,8 @@
       "Acesso universal à educação",
       "Falta de recursos educacionais"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "Uma educação realmente inclusiva começa quando ninguém é impedido de estudar por sua origem ou condição social."
   },
   {
     "id": "easy-004",
@@ -45,7 +48,8 @@
       "2035",
       "2040"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A pista está no próprio nome do plano global das Nações Unidas ao qual os ODS pertencem."
   },
   {
     "id": "easy-005",
@@ -57,7 +61,8 @@
       "Fenômeno natural sem influência humana",
       "Resfriamento das regiões polares"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Não confunda com um evento climático isolado: trata-se de uma tendência de aumento da temperatura do planeta ao longo do tempo."
   },
   {
     "id": "easy-006",
@@ -69,7 +74,8 @@
       "Energias que aumentam a poluição",
       "Energias obsoletas"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Observe qual definição está ligada à geração de energia com baixa ou nenhuma emissão de poluentes durante seu uso."
   },
   {
     "id": "easy-007",
@@ -81,7 +87,8 @@
       "Prevenção de contaminação dos alimentos",
       "Controle de pragas em plantações"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Segurança alimentar envolve não apenas ter comida, mas ter acesso regular a alimentos em quantidade e qualidade adequadas."
   },
   {
     "id": "easy-008",
@@ -93,7 +100,8 @@
       "Promover apenas alimentos processados",
       "Aumentar a exportação de alimentos"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "O conceito vai além de produzir mais alimentos: o objetivo é que nenhuma pessoa permaneça sem acesso a alimentação adequada."
   },
   {
     "id": "easy-009",
@@ -105,7 +113,8 @@
       "Energia a diesel",
       "Energia nuclear"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Pense em uma fonte que aproveita um recurso natural renovável sem queimar combustível para gerar eletricidade."
   },
   {
     "id": "easy-010",
@@ -117,7 +126,8 @@
       "Bicicleta",
       "Motocicleta"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "Compare as opções pela quantidade de energia e emissões necessárias para transportar uma pessoa em trajetos urbanos."
   },
   {
     "id": "easy-011",
@@ -129,7 +139,8 @@
       "Redução do congestionamento urbano",
       "Maior emissão de gases de efeito estufa"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "Uma cidade com mais alternativas sustentáveis de deslocamento tende a ter menos carros disputando o mesmo espaço viário."
   },
   {
     "id": "easy-012",
@@ -141,7 +152,8 @@
       "Consumo local",
       "Produção diversificada"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Procure o fator capaz de afetar safras, disponibilidade de água e regularidade da produção de alimentos em grande escala."
   },
   {
     "id": "easy-013",
@@ -153,7 +165,8 @@
       "Incentivar o uso de veículos elétricos",
       "Reduzir a frequência do transporte público"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "A alternativa mais adequada reduz a dependência direta de combustíveis fósseis sem impedir a mobilidade das pessoas."
   },
   {
     "id": "easy-014",
@@ -165,7 +178,8 @@
       "Proteger e preservar a diversidade de vida na Terra",
       "Promover a extinção de animais e plantas"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "Conservar biodiversidade significa manter diferentes espécies, habitats e relações ecológicas funcionando ao longo do tempo."
   },
   {
     "id": "easy-015",
@@ -177,7 +191,8 @@
       "Manter as desigualdades sociais",
       "Ignorar as diferenças entre as pessoas"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Inclusão social está relacionada a remover barreiras para que diferentes grupos participem da sociedade com os mesmos direitos."
   },
   {
     "id": "easy-016",
@@ -189,7 +204,8 @@
       "Reduzir os investimentos em práticas sustentáveis",
       "Promover apenas interesses econômicos imediatos"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Empresas podem contribuir quando direcionam recursos e capacidade de inovação para soluções que conciliem economia, sociedade e ambiente."
   },
   {
     "id": "easy-017",
@@ -201,7 +217,8 @@
       "Locais onde a caça ilegal é permitida",
       "Locais onde a vida selvagem é protegida e conservada"
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "Pense em espaços criados ou reconhecidos para limitar impactos humanos e conservar espécies e habitats."
   },
   {
     "id": "easy-018",
@@ -213,7 +230,8 @@
       "Espécies que correm o risco de desaparecer da Terra",
       "Espécies que não são importantes para os ecossistemas"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "A expressão descreve populações cuja sobrevivência futura está comprometida e que podem deixar de existir."
   },
   {
     "id": "easy-019",
@@ -225,7 +243,8 @@
       "Uso restrito das tecnologias digitais por algumas pessoas",
       "Ignorância em relação às novas tecnologias"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Não basta existir tecnologia: inclusão digital significa que diferentes grupos conseguem acessá-la e utilizá-la."
   },
   {
     "id": "easy-020",
@@ -237,7 +256,8 @@
       "Manutenção de desigualdades sociais",
       "Ignorância em relação aos direitos humanos"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Justiça social está ligada à distribuição equitativa de direitos, oportunidades e condições para participar da sociedade."
   },
   {
     "id": "easy-021",
@@ -249,7 +269,8 @@
       "Aumentar as emissões de gases de efeito estufa",
       "Promover o desmatamento"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Adaptação não significa impedir o clima de mudar, mas ajustar cidades, atividades e comportamentos aos impactos que já ocorrem ou são esperados."
   },
   {
     "id": "easy-022",
@@ -261,7 +282,8 @@
       "Direitos garantidos a todos, independentemente de raça, gênero, religião, etc.",
       "Ignorância em relação aos direitos fundamentais"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "São garantias que pertencem a todas as pessoas por sua condição humana, sem depender de identidade, origem ou crença."
   },
   {
     "id": "easy-023",
@@ -273,7 +295,8 @@
       "Restrição do acesso às tecnologias digitais a algumas pessoas",
       "Uso irrestrito das tecnologias digitais"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "Pense no oposto de inclusão digital: quando parte da população fica sem acesso ou condições de usar tecnologias."
   },
   {
     "id": "easy-024",
@@ -285,7 +308,8 @@
       "Aumentar a pesca ilegal",
       "Utilizar produtos químicos prejudiciais nos mares"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Procure uma ação cotidiana que reduza diretamente a quantidade de resíduos que chegam a rios e oceanos."
   },
   {
     "id": "easy-025",
@@ -297,7 +321,8 @@
       "Jogar papéis e embalagens na rua.",
       "Comprar roupas novas todo dia, mesmo sem precisar delas."
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Evitar desperdício começa antes de sobrar comida: sirva uma quantidade compatível com o que realmente pretende consumir."
   },
   {
     "id": "easy-026",
@@ -309,7 +334,8 @@
       "Objetivos de Desenvolvimento Social",
       "Objetivos de Desenvolvimento Sincronizado"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A sigla reúne três palavras que resumem as metas globais da Agenda 2030 para desenvolvimento e sustentabilidade."
   },
   {
     "id": "easy-027",
@@ -321,7 +347,8 @@
       "Aumentar a desigualdade salarial entre homens e mulheres",
       "Excluir mulheres do mercado de trabalho"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "O foco não é favorecer um gênero, mas garantir condições e oportunidades equivalentes para homens e mulheres."
   },
   {
     "id": "easy-028",
@@ -333,7 +360,8 @@
       "Reduzir os direitos das mulheres",
       "Garantir que as mulheres tenham controle sobre suas próprias vidas e decisões"
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "Empoderamento envolve autonomia: pense em poder participar, decidir e controlar escolhas que afetam a própria vida."
   },
   {
     "id": "easy-029",
@@ -345,7 +373,8 @@
       "Descarte de lixo em aterros sanitários",
       "Incineração de resíduos sólidos"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "É um processo que aproveita restos de alimentos e outros materiais orgânicos para produzir algo útil ao solo."
   },
   {
     "id": "easy-030",
@@ -357,7 +386,8 @@
       "Reduzir o emprego",
       "Garantir acesso a serviços básicos como educação e saúde"
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "Reduzir pobreza exige mais do que renda imediata; pense também no acesso a condições essenciais para uma vida digna."
   },
   {
     "id": "easy-031",
@@ -369,7 +399,8 @@
       "Alto nível de escolaridade",
       "Bom acesso a serviços de saúde"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Pobreza extrema costuma aparecer quando necessidades básicas não são atendidas, inclusive condições adequadas de higiene e infraestrutura."
   },
   {
     "id": "easy-032",
@@ -381,7 +412,8 @@
       "Transparência, prestação de contas e participação cidadã",
       "Exclusão de cidadãos do processo de tomada de decisão"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "Instituições confiáveis precisam permitir que a sociedade saiba como decisões são tomadas e cobre responsabilidades de quem exerce poder."
   },
   {
     "id": "easy-033",
@@ -393,7 +425,8 @@
       "Consumo excessivo de alimentos industrializados",
       "Ampliação do acesso ao saneamento básico"
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "Muitas doenças podem ser prevenidas quando água, coleta e tratamento de esgoto chegam adequadamente à população."
   },
   {
     "id": "easy-034",
@@ -405,7 +438,8 @@
       "Estado de saúde física, mental e social completo",
       "Foco apenas em aspectos físicos da saúde"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "O conceito de bem-estar considera a pessoa de forma ampla, não apenas a ausência de uma doença específica."
   },
   {
     "id": "easy-035",
@@ -417,7 +451,8 @@
       "Redução da biodiversidade",
       "Aumento do desperdício de água"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Pense no efeito mais direto de água tratada e esgoto adequado sobre doenças e qualidade de vida da população."
   },
   {
     "id": "easy-036",
@@ -429,7 +464,8 @@
       "Trabalho que paga salários muito baixos",
       "Trabalho que exclui certos grupos de pessoas"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Trabalho decente combina remuneração e direitos com segurança, respeito e condições adequadas para quem trabalha."
   },
   {
     "id": "easy-037",
@@ -441,7 +477,8 @@
       "Limitação do acesso ao crédito para pequenas empresas",
       "Aumento das barreiras comerciais entre países"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Crescimento sustentável é favorecido quando novas ideias e negócios conseguem gerar valor e emprego sem depender apenas de práticas tradicionais."
   },
   {
     "id": "easy-038",
@@ -453,7 +490,8 @@
       "Restrita a determinadas etnias",
       "Acessível a todos, independentemente de classe social"
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "Educação de qualidade deve reduzir barreiras econômicas e sociais, e não selecionar quem pode aprender com base em renda."
   },
   {
     "id": "easy-039",
@@ -465,7 +503,8 @@
       "Acesso a serviços de saúde de qualidade e promoção de hábitos saudáveis",
       "Aumento da poluição do ar"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "A melhor alternativa combina prevenção e hábitos saudáveis com a possibilidade real de receber atendimento quando necessário."
   },
   {
     "id": "easy-040",
@@ -477,6 +516,7 @@
       "Redução de investimentos em infraestrutura",
       "Exclusão de países menos desenvolvidos das discussões globais"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Os ODS são globais; procure uma ação que permita países compartilharem recursos, conhecimento e soluções em vez de atuarem isoladamente."
   }
 ]

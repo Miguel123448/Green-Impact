@@ -9,7 +9,8 @@
       "Substituir integralmente as infraestruturas existentes por sistemas de baixa emissão de carbono até 2030.",
       "Restringir os investimentos em infraestrutura aos setores industriais de alta tecnologia."
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A meta de infraestrutura da ODS 9 não fala apenas em construir mais: ela combina qualidade, resiliência, sustentabilidade, acesso e contribuição ao bem-estar."
   },
   {
     "id": "hard-002",
@@ -21,7 +22,8 @@
       "Reduzir a desmatamento ilegal",
       "Tecnologias de limpeza oceânica"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A ODS 14 estabelece uma meta direta sobre aquilo que chega ao oceano como lixo e contaminantes, especialmente de origem terrestre."
   },
   {
     "id": "hard-003",
@@ -33,7 +35,8 @@
       "Padronizar o desmatamento ilegal",
       "Promover a gestão sustentável das florestas"
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "A meta florestal da ODS 15 procura conciliar conservação e uso responsável, evitando degradação e perda contínua de cobertura vegetal."
   },
   {
     "id": "hard-004",
@@ -45,7 +48,8 @@
       "Prosperidade, Pessoas e Planeta",
       "Igualdade, Sustentabilidade e Desenvolvimento"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Pense nas três dimensões clássicas da sustentabilidade: pessoas e sociedade, atividade econômica e proteção do meio ambiente."
   },
   {
     "id": "hard-005",
@@ -57,7 +61,8 @@
       "Combater a desertificação e restaurar ecossistemas degradados, assegurando o uso sustentável dos recursos terrestres.",
       "Garantir o acesso universal aos serviços de saúde sexual e reprodutiva e reduzir a mortalidade materna."
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A ODS 17 é a que permite às demais avançarem: concentre-se em cooperação, recursos e capacidade de implementação entre diferentes atores."
   },
   {
     "id": "hard-006",
@@ -69,7 +74,8 @@
       "Falta de capacitação técnica",
       "Dependência de insumos químicos"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A intensificação sustentável pode gerar ganhos no longo prazo, mas sua adoção costuma exigir tecnologia, infraestrutura e capital antes que os benefícios apareçam."
   },
   {
     "id": "hard-007",
@@ -81,7 +87,8 @@
       "Malária",
       "Hepatite B"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Procure uma enfermidade crônica ligada ao metabolismo, diferente de doenças causadas por vírus, bactérias ou outros agentes infecciosos."
   },
   {
     "id": "hard-008",
@@ -93,7 +100,8 @@
       "Estabelecer mecanismos globais de cooperação e financiamento para apoiar a implementação dos demais objetivos de desenvolvimento sustentável.",
       "Desenvolver políticas de segurança pública voltadas exclusivamente para a redução da criminalidade e do terrorismo."
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A ODS 16 reúne três eixos: paz e inclusão social, acesso à justiça e instituições que atuem com responsabilidade e transparência."
   },
   {
     "id": "hard-009",
@@ -105,7 +113,8 @@
       "Pessoas, Planeta, Prosperidade, Parcerias, Participação",
       "Pessoas, Planeta, Prosperidade, Paz, Parcerias"
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "Os cinco Ps resumem a Agenda 2030 em pessoas, ambiente, desenvolvimento econômico, convivência pacífica e cooperação entre atores."
   },
   {
     "id": "hard-010",
@@ -117,7 +126,8 @@
       "A limitação do ensino bilíngue e a falta de materiais didáticos em idiomas estrangeiros.",
       "A reduzida participação das universidades em programas de cooperação científica internacional."
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Em zonas de conflito, o problema não é apenas currículo ou material didático: a própria segurança de escolas, estudantes e instituições pode estar comprometida."
   },
   {
     "id": "hard-011",
@@ -129,7 +139,8 @@
       "Reduzir barreiras tarifárias para aumentar a competitividade de produtos importados no mercado doméstico.",
       "Priorizar investimentos em infraestrutura aeroportuária para estimular o crescimento do setor de serviços."
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Em áreas rurais, combater pobreza extrema passa por aumentar a capacidade produtiva e financeira dos pequenos produtores, não apenas por medidas temporárias de consumo."
   },
   {
     "id": "hard-012",
@@ -141,7 +152,8 @@
       "Computação em Nuvem",
       "Manufatura Aditiva"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A tecnologia em questão aprende padrões a partir de dados e é usada em tarefas como visão computacional, classificação e decisões automatizadas."
   },
   {
     "id": "hard-013",
@@ -153,7 +165,8 @@
       "A inviabilidade econômica comprovada dos modelos de economia circular em países em desenvolvimento.",
       "A proibição do uso de fontes renováveis de energia em atividades industriais."
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A transição sustentável muitas vezes exige trocar equipamentos, processos e infraestrutura antes que a economia operacional apareça; observe o custo dessa mudança inicial."
   },
   {
     "id": "hard-014",
@@ -165,7 +178,8 @@
       "Aumento das tarifas de importação",
       "Incentivo à concentração de riqueza em grandes centros urbanos"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Procure a política que atua diretamente sobre a distribuição de renda e amplia proteção social para grupos com menos recursos."
   },
   {
     "id": "hard-015",
@@ -177,7 +191,8 @@
       "Relatório de Desenvolvimento Humano das Nações Unidas, elaborado por Amartya Sen.",
       "Relatório do Milênio das Nações Unidas, coordenado por Jeffrey Sachs."
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A frase ficou conhecida por um relatório internacional dos anos 1980, associado a uma comissão da ONU presidida por uma médica e ex-primeira-ministra norueguesa."
   },
   {
     "id": "hard-016",
@@ -189,7 +204,8 @@
       "Baixa demanda por energia",
       "Falta de mão de obra qualificada"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Em regiões rurais, a energia solar pode reduzir custos ao longo do tempo, mas painéis, baterias e instalação exigem desembolso antes do primeiro benefício."
   },
   {
     "id": "hard-017",
@@ -201,7 +217,8 @@
       "Estados Unidos",
       "Índia"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Pense em um país nórdico conhecido por políticas de igualdade de gênero e que se tornou referência em cotas para conselhos empresariais."
   },
   {
     "id": "hard-018",
@@ -213,7 +230,8 @@
       "Vaporização geotérmica espontânea",
       "Sedimentação por campos gravitacionais artificiais"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A tecnologia usa uma estrutura de carbono extremamente fina, com alta capacidade de filtração e potencial para membranas de dessalinização."
   },
   {
     "id": "hard-019",
@@ -225,7 +243,8 @@
       "Maior eficiência no gerenciamento escolar",
       "Redução do número de professores necessários"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Quando estudantes rurais não conseguem acessar plataformas e recursos digitais, aumenta a dificuldade de acompanhar atividades e permanecer vinculados à escola."
   },
   {
     "id": "hard-020",
@@ -237,7 +256,8 @@
       "Energias renováveis",
       "Tecnologia da informação"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "A transição energética vem criando ocupações em instalação, operação e manutenção de fontes de baixo carbono em ritmo acelerado."
   },
   {
     "id": "hard-021",
@@ -249,7 +269,8 @@
       "Dubai",
       "Brasília"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Pense em uma capital europeia famosa pela cultura da bicicleta, ciclovias extensas e integração com o transporte coletivo."
   },
   {
     "id": "hard-022",
@@ -261,7 +282,8 @@
       "Pesca seletiva com anzol e linha, associada ao manejo baseado em cotas",
       "Pesca com redes de deriva oceânicas de grande extensão"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "A prática mais sustentável reduz capturas indesejadas ao tornar a pesca mais seletiva e combina essa técnica com limites de retirada baseados em manejo."
   },
   {
     "id": "hard-023",
@@ -273,7 +295,8 @@
       "Organização Mundial do Comércio (OMC)",
       "Organização para a Cooperação e Desenvolvimento Econômico (OCDE)"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A instituição procurada reúne países do mundo inteiro e é o fórum multilateral que aprovou formalmente a Agenda 2030."
   },
   {
     "id": "hard-024",
@@ -285,7 +308,8 @@
       "Tuberculose",
       "HIV/AIDS"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A doença é viral, pode causar paralisia e hoje permanece endêmica em pouquíssimos países graças a décadas de vacinação global."
   },
   {
     "id": "hard-025",
@@ -297,7 +321,8 @@
       "Reino Unido",
       "Dinamarca"
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "Pense em um país escandinavo com longa tradição em energia eólica e forte aproveitamento dos ventos do Mar do Norte."
   },
   {
     "id": "hard-026",
@@ -309,7 +334,8 @@
       "Agricultura de conservação",
       "Agricultura de precisão"
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "Essa abordagem agrícola aplica dados georreferenciados e sensores para usar água, fertilizantes e outros insumos apenas onde e quando são necessários."
   },
   {
     "id": "hard-027",
@@ -321,7 +347,8 @@
       "Finlândia",
       "Nova Zelândia"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Pense em um país africano que adotou cotas políticas após um grave conflito nos anos 1990 e passou a ter participação feminina excepcionalmente alta no parlamento."
   },
   {
     "id": "hard-028",
@@ -333,7 +360,8 @@
       "Alemanha",
       "Estados Unidos"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A referência histórica está ligada às grandes reformas sanitárias de Londres no século XIX, impulsionadas por epidemias e pela poluição do Tâmisa."
   },
   {
     "id": "hard-029",
@@ -345,7 +373,8 @@
       "Etiópia",
       "China"
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "O nome “Grande Muralha Verde” desta pergunta se relaciona a um enorme programa nacional de reflorestamento destinado a conter desertificação no norte e noroeste asiático."
   },
   {
     "id": "hard-030",
@@ -357,7 +386,8 @@
       "Resistência das elites políticas e grupos de poder às reformas institucionais",
       "Excesso de tratados internacionais ratificados pelo país"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "Reformas de justiça podem fracassar quando grupos que se beneficiam das estruturas existentes usam influência política para bloquear mudanças e responsabilização."
   },
   {
     "id": "hard-031",
@@ -369,7 +399,8 @@
       "Extinção dos mercados de trabalho formais",
       "Obrigatoriedade de adoção de um salário mínimo único em todos os países"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Salários dignos são mais difíceis de generalizar quando renda e riqueza permanecem muito concentradas em uma pequena parcela da sociedade."
   },
   {
     "id": "hard-032",
@@ -381,7 +412,8 @@
       "Singapura",
       "Vancouver"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "Pense em uma cidade-estado asiática conhecida por planejamento urbano rigoroso, edifícios verdes e certificação ambiental própria."
   },
   {
     "id": "hard-033",
@@ -393,7 +425,8 @@
       "Redução da frequência escolar das crianças beneficiadas",
       "Aumento da desigualdade de renda"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Uma crítica recorrente afirma que, sem políticas de autonomia econômica e saída sustentável, famílias podem permanecer por muito tempo vinculadas ao benefício."
   },
   {
     "id": "hard-034",
@@ -405,7 +438,8 @@
       "Tragédia dos comuns",
       "Paradoxo de Jevons"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "O fenômeno é uma barreira invisível: mulheres avançam na carreira até certo nível, mas encontram obstáculos informais para chegar ao topo."
   },
   {
     "id": "hard-035",
@@ -417,7 +451,8 @@
       "Canadá",
       "Nova Zelândia"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Pense em um país nórdico que introduziu a tributação do carbono no início da década de 1990 e é frequentemente citado em políticas climáticas."
   },
   {
     "id": "hard-036",
@@ -429,7 +464,8 @@
       "Câncer",
       "Acidentes de trânsito"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Em países de baixa renda, muitas mortes infantis ainda estão associadas a agentes transmissíveis e condições de saneamento, vacinação e acesso à saúde."
   },
   {
     "id": "hard-037",
@@ -441,7 +477,8 @@
       "Arseneto de Gálio",
       "Telureto de Cádmio"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "O material é um composto dos grupos III-V, usado quando eficiência pesa mais que custo, como em satélites e aplicações espaciais."
   },
   {
     "id": "hard-038",
@@ -453,7 +490,8 @@
       "Desnitrificação",
       "Metanogênese"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "É o processo realizado por plantas, algas e alguns microrganismos que usa luz para incorporar carbono atmosférico em compostos orgânicos."
   },
   {
     "id": "hard-039",
@@ -465,7 +503,8 @@
       "Aumento da mobilidade internacional",
       "Flutuações cambiais frequentes"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A desigualdade global é difícil de reduzir quando países partem de níveis muito diferentes e suas economias crescem em ritmos desiguais."
   },
   {
     "id": "hard-040",
@@ -477,6 +516,7 @@
       "Deficiência na infraestrutura digital",
       "Regulamentações governamentais rígidas"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "Fábricas conectadas dependem de redes, computação e dados; em economias emergentes, uma limitação básica costuma estar justamente nessa base tecnológica."
   }
 ]

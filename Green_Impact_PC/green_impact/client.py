@@ -22,6 +22,18 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 ASSET_DIR = BASE_DIR / "assets"
 
 WINDOW_W, WINDOW_H = 1280, 720
+DEFAULT_DISPLAY_RESOLUTION = (1280, 720)
+DEFAULT_FULLSCREEN = False
+DISPLAY_RESOLUTIONS = [
+    (1024, 576),
+    (1280, 720),
+    (1366, 768),
+    (1600, 900),
+    (1920, 1080),
+    (2560, 1440),
+]
+SETTINGS_FILE = Path.home() / ".green_impact_settings.json"
+DISPLAY_CONFIRM_SECONDS = 15
 BG = (235, 238, 214)
 PANEL = (245, 246, 225)
 DARK = (18, 77, 48)
@@ -159,8 +171,14 @@ class Button:
         self.text_color = text_color
         self.font = font
 
-    def draw(self, screen: pygame.Surface, font: pygame.font.Font, small: bool = False) -> None:
-        mouse = pygame.mouse.get_pos()
+    def draw(
+        self,
+        screen: pygame.Surface,
+        font: pygame.font.Font,
+        small: bool = False,
+        mouse_pos: tuple[int, int] | None = None,
+    ) -> None:
+        mouse = mouse_pos if mouse_pos is not None else pygame.mouse.get_pos()
         hover = self.rect.collidepoint(mouse)
         if not self.enabled:
             fill = (200, 205, 188)
@@ -259,13 +277,33 @@ class GreenImpactClient:
         self.dice_reveal_end = 0.0
         self.dice_roll_sent = False
 
+        # Configurações de vídeo do cliente desktop. O jogo continua sendo
+        # desenhado em uma área lógica de 1280x720 e é escalado para a
+        # resolução escolhida, preservando todo o layout existente.
+        self.display_resolution = DEFAULT_DISPLAY_RESOLUTION
+        self.fullscreen = DEFAULT_FULLSCREEN
+        self.pending_resolution = self.display_resolution
+        self.pending_fullscreen = self.fullscreen
+        self.load_display_settings()
+        # Alterações de vídeo só são persistidas depois da confirmação do
+        # jogador. Caso ele não enxergue a nova configuração, o jogo restaura
+        # automaticamente o último modo que estava funcionando.
+        self.display_confirmation_deadline: float | None = None
+        self.display_previous_resolution: tuple[int, int] | None = None
+        self.display_previous_fullscreen: bool | None = None
+
         pygame.init()
         pygame.display.set_caption("Green Impact - Uma Jornada Sustentável")
         try:
             pygame.display.set_icon(pygame.image.load(str(ASSET_DIR / "app_icon.png")))
         except Exception:
             pass
-        self.screen = pygame.display.set_mode((WINDOW_W, WINDOW_H))
+        self.display_surface = self.create_display_surface(
+            self.display_resolution, self.fullscreen
+        )
+        # Surface lógica usada por toda a interface. Assim resoluções maiores
+        # ou menores não quebram as coordenadas e proporções da HUD.
+        self.screen = pygame.Surface((WINDOW_W, WINDOW_H)).convert()
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("arial", 22)
         self.font_small = pygame.font.SysFont("arial", 18)
@@ -295,6 +333,319 @@ class GreenImpactClient:
         }
         self.home_name_input = InputBox(pygame.Rect(610, 382, 300, 42), "Seu nome", name or "Jogador")
         self.ensure_local_name_inputs()
+
+    def load_display_settings(self) -> None:
+        """Carrega resolução e modo de tela salvos pelo jogador."""
+        try:
+            data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+            width = int(data.get("width", DEFAULT_DISPLAY_RESOLUTION[0]))
+            height = int(data.get("height", DEFAULT_DISPLAY_RESOLUTION[1]))
+            resolution = (width, height)
+            if resolution not in DISPLAY_RESOLUTIONS:
+                resolution = DEFAULT_DISPLAY_RESOLUTION
+            self.display_resolution = resolution
+            self.fullscreen = bool(data.get("fullscreen", DEFAULT_FULLSCREEN))
+        except Exception:
+            # Primeira execução, arquivo ausente/corrompido ou valor inválido:
+            # inicia sempre em 1280x720 no modo janela.
+            self.display_resolution = DEFAULT_DISPLAY_RESOLUTION
+            self.fullscreen = DEFAULT_FULLSCREEN
+        self.pending_resolution = self.display_resolution
+        self.pending_fullscreen = self.fullscreen
+
+    def save_display_settings(self) -> None:
+        """Persiste as preferências de vídeo fora da pasta do executável."""
+        try:
+            SETTINGS_FILE.write_text(
+                json.dumps(
+                    {
+                        "width": self.display_resolution[0],
+                        "height": self.display_resolution[1],
+                        "fullscreen": self.fullscreen,
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+        except Exception as exc:
+            self.messages.append(f"Não foi possível salvar as configurações: {exc}")
+
+    def create_display_surface(
+        self, resolution: tuple[int, int], fullscreen: bool
+    ) -> pygame.Surface:
+        flags = pygame.FULLSCREEN if fullscreen else 0
+        try:
+            return pygame.display.set_mode(resolution, flags)
+        except pygame.error:
+            # Alguns monitores não aceitam todas as resoluções em fullscreen.
+            # Nesse caso, volta com segurança para 1280x720 em modo janela.
+            self.display_resolution = DEFAULT_DISPLAY_RESOLUTION
+            self.fullscreen = DEFAULT_FULLSCREEN
+            self.pending_resolution = self.display_resolution
+            self.pending_fullscreen = self.fullscreen
+            return pygame.display.set_mode(self.display_resolution)
+
+    def logical_mouse_pos(self, pos: tuple[int, int] | None = None) -> tuple[int, int]:
+        """Converte coordenadas da janela para a superfície lógica 1280x720."""
+        if pos is None:
+            pos = pygame.mouse.get_pos()
+        width, height = self.display_surface.get_size()
+        if width <= 0 or height <= 0:
+            return pos
+        return (
+            max(0, min(WINDOW_W - 1, int(pos[0] * WINDOW_W / width))),
+            max(0, min(WINDOW_H - 1, int(pos[1] * WINDOW_H / height))),
+        )
+
+    def open_display_settings(self) -> None:
+        self.pending_resolution = self.display_resolution
+        self.pending_fullscreen = self.fullscreen
+        self.ui_mode = "display_settings"
+        self.connection_error = None
+        self.home_name_input.active = False
+        for box in self.menu_inputs.values():
+            box.active = False
+
+    def select_display_resolution(self, resolution: tuple[int, int]) -> None:
+        self.pending_resolution = resolution
+
+    def set_pending_fullscreen(self, fullscreen: bool) -> None:
+        self.pending_fullscreen = fullscreen
+
+    def apply_display_settings(self) -> None:
+        """Aplica temporariamente e exige confirmação em até 15 segundos."""
+        old_resolution = self.display_resolution
+        old_fullscreen = self.fullscreen
+        new_resolution = self.pending_resolution
+        new_fullscreen = self.pending_fullscreen
+
+        if new_resolution == old_resolution and new_fullscreen == old_fullscreen:
+            self.messages.append("Nenhuma alteração de vídeo para aplicar.")
+            return
+
+        try:
+            new_surface = pygame.display.set_mode(
+                new_resolution,
+                pygame.FULLSCREEN if new_fullscreen else 0,
+            )
+        except pygame.error as exc:
+            self.pending_resolution = old_resolution
+            self.pending_fullscreen = old_fullscreen
+            self.messages.append(f"Não foi possível aplicar a resolução: {exc}")
+            return
+
+        # Só atualiza o estado após set_mode ter sido bem-sucedido. O arquivo
+        # de preferências continua intacto até o jogador confirmar.
+        self.display_previous_resolution = old_resolution
+        self.display_previous_fullscreen = old_fullscreen
+        self.display_surface = new_surface
+        self.display_resolution = new_resolution
+        self.fullscreen = new_fullscreen
+        self.display_confirmation_deadline = time.monotonic() + DISPLAY_CONFIRM_SECONDS
+
+    def confirm_display_settings(self) -> None:
+        """Mantém a nova configuração e a persiste para a próxima execução."""
+        if self.display_confirmation_deadline is None:
+            return
+        self.display_confirmation_deadline = None
+        self.display_previous_resolution = None
+        self.display_previous_fullscreen = None
+        self.pending_resolution = self.display_resolution
+        self.pending_fullscreen = self.fullscreen
+        self.save_display_settings()
+        mode = "Tela cheia" if self.fullscreen else "Modo janela"
+        self.messages.append(
+            f"Configuração de vídeo mantida: {self.display_resolution[0]}x"
+            f"{self.display_resolution[1]} - {mode}"
+        )
+
+    def revert_display_settings(self, automatic: bool = False) -> None:
+        """Restaura a configuração anterior, manualmente ou após o timeout."""
+        if self.display_confirmation_deadline is None:
+            return
+
+        old_resolution = self.display_previous_resolution or DEFAULT_DISPLAY_RESOLUTION
+        old_fullscreen = (
+            self.display_previous_fullscreen
+            if self.display_previous_fullscreen is not None
+            else DEFAULT_FULLSCREEN
+        )
+
+        try:
+            self.display_surface = pygame.display.set_mode(
+                old_resolution, pygame.FULLSCREEN if old_fullscreen else 0
+            )
+            self.display_resolution = old_resolution
+            self.fullscreen = old_fullscreen
+        except pygame.error:
+            # Última rota de segurança caso o sistema deixe de aceitar até
+            # mesmo a configuração que estava ativa anteriormente.
+            self.display_resolution = DEFAULT_DISPLAY_RESOLUTION
+            self.fullscreen = DEFAULT_FULLSCREEN
+            self.display_surface = pygame.display.set_mode(self.display_resolution)
+
+        self.pending_resolution = self.display_resolution
+        self.pending_fullscreen = self.fullscreen
+        self.display_confirmation_deadline = None
+        self.display_previous_resolution = None
+        self.display_previous_fullscreen = None
+        if automatic:
+            self.messages.append(
+                "Alteração de vídeo revertida automaticamente após 15 segundos."
+            )
+        else:
+            self.messages.append("Alteração de vídeo revertida.")
+
+    def update_display_confirmation(self) -> None:
+        if self.display_confirmation_deadline is None:
+            return
+        if time.monotonic() >= self.display_confirmation_deadline:
+            self.revert_display_settings(automatic=True)
+
+    def draw_display_confirmation_overlay(self) -> None:
+        """Bloqueia a interface até manter ou reverter a nova resolução."""
+        if self.display_confirmation_deadline is None:
+            return
+
+        remaining = max(0, math.ceil(self.display_confirmation_deadline - time.monotonic()))
+
+        # Escurece a tela e deixa apenas os controles de confirmação ativos.
+        shade = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
+        shade.fill((0, 0, 0, 150))
+        self.screen.blit(shade, (0, 0))
+
+        box = pygame.Rect(330, 196, 620, 328)
+        self.draw_round_rect(box, (248, 248, 232), (176, 184, 146), radius=24)
+        self.draw_center_text(
+            "Manter estas configurações?",
+            pygame.Rect(box.x + 28, box.y + 30, box.w - 56, 42),
+            self.font_big,
+            DARK,
+        )
+        self.draw_wrapped_centered(
+            "Se você não confirmar, a resolução e o modo de tela anteriores serão restaurados automaticamente.",
+            pygame.Rect(box.x + 58, box.y + 88, box.w - 116, 66),
+            58,
+            self.font_small,
+            TEXT,
+            22,
+        )
+        mode = "Tela cheia" if self.fullscreen else "Modo janela"
+        self.draw_center_text(
+            f"{self.display_resolution[0]} x {self.display_resolution[1]} — {mode}",
+            pygame.Rect(box.x + 60, box.y + 161, box.w - 120, 30),
+            self.font,
+            DARK,
+        )
+        self.draw_center_text(
+            f"Revertendo em {remaining} segundo{'s' if remaining != 1 else ''}",
+            pygame.Rect(box.x + 60, box.y + 200, box.w - 120, 34),
+            self.font_turn,
+            RED if remaining <= 5 else TEXT,
+        )
+
+        self.add_primary_button(
+            pygame.Rect(box.x + 70, box.bottom - 70, 220, 48),
+            "Manter alterações",
+            self.confirm_display_settings,
+            enabled=True,
+        )
+        self.add_outline_button(
+            pygame.Rect(box.right - 290, box.bottom - 70, 220, 48),
+            "Reverter agora",
+            self.revert_display_settings,
+            enabled=True,
+        )
+
+    def draw_display_settings(self) -> None:
+        self.screen.fill(BG)
+        header_rect, _board_rect, panel = self.draw_pc_home_background()
+
+        logo_card = pygame.Rect(header_rect.x + 4, header_rect.y + 6, 274, 96)
+        self.draw_round_rect(logo_card, (247, 243, 228), (210, 195, 145), radius=28)
+        if self.logo_img:
+            logo = pygame.transform.smoothscale(self.logo_img, (220, 110))
+            self.screen.blit(logo, (logo_card.x + 18, logo_card.y - 4))
+
+        self.draw_center_text(
+            "Configurações de vídeo",
+            pygame.Rect(400, 26, 612, 46),
+            self.font_title,
+            DARK,
+        )
+        pygame.draw.line(self.screen, (201, 187, 142), (548, 104), (1012, 104), 2)
+        self.draw_wrapped_centered(
+            "Padrão: 1280 x 720 em modo janela. Após aplicar outra opção, confirme em até 15 segundos.",
+            pygame.Rect(560, 116, 440, 48),
+            38,
+            self.font,
+            TEXT,
+            24,
+        )
+
+        x = panel.x + 34
+        y = panel.y + 28
+        self.draw_text("Resolução", (x, y), self.font_big, DARK)
+        y += 50
+        button_w = 150
+        button_h = 42
+        gap_x = 16
+        gap_y = 12
+        for idx, resolution in enumerate(DISPLAY_RESOLUTIONS):
+            col = idx % 2
+            row = idx // 2
+            rect = pygame.Rect(
+                x + col * (button_w + gap_x),
+                y + row * (button_h + gap_y),
+                button_w,
+                button_h,
+            )
+            self.add_outline_button(
+                rect,
+                f"{resolution[0]} x {resolution[1]}",
+                lambda r=resolution: self.select_display_resolution(r),
+                enabled=True,
+                selected=self.pending_resolution == resolution,
+            )
+
+        y += 3 * (button_h + gap_y) + 14
+        self.draw_text("Modo de exibição", (x, y), self.font_big, DARK)
+        y += 48
+        self.add_outline_button(
+            pygame.Rect(x, y, 150, 46),
+            "Modo janela",
+            lambda: self.set_pending_fullscreen(False),
+            enabled=True,
+            selected=not self.pending_fullscreen,
+        )
+        self.add_outline_button(
+            pygame.Rect(x + 166, y, 150, 46),
+            "Tela cheia",
+            lambda: self.set_pending_fullscreen(True),
+            enabled=True,
+            selected=self.pending_fullscreen,
+        )
+
+        current = (
+            f"Atual: {self.display_resolution[0]} x {self.display_resolution[1]} - "
+            + ("Tela cheia" if self.fullscreen else "Modo janela")
+        )
+        self.draw_center_text(
+            current, pygame.Rect(x, y + 64, 316, 28), self.font_small, TEXT
+        )
+
+        self.add_primary_button(
+            pygame.Rect(x, panel.bottom - 66, 192, 48),
+            "Aplicar",
+            self.apply_display_settings,
+            enabled=True,
+        )
+        self.add_outline_button(
+            pygame.Rect(x + 208, panel.bottom - 66, 108, 48),
+            "Voltar",
+            lambda: setattr(self, "ui_mode", "home"),
+            enabled=True,
+        )
 
     def load_image(self, path: Path, size: tuple[int, int], keep_alpha: bool = False) -> pygame.Surface | None:
         try:
@@ -590,7 +941,7 @@ class GreenImpactClient:
             border_color=border_color, text_color=text_color, font=font,
         )
         self.buttons.append(btn)
-        btn.draw(self.screen, self.font_small)
+        btn.draw(self.screen, self.font_small, mouse_pos=self.logical_mouse_pos())
 
     def draw_round_rect(self, rect: pygame.Rect, fill: tuple[int, int, int], border: tuple[int, int, int] | None = None, radius: int = 18, width: int = 2) -> None:
         pygame.draw.rect(self.screen, fill, rect, border_radius=radius)
@@ -617,7 +968,7 @@ class GreenImpactClient:
         box.draw(self.screen, self.font, self.font_small)
 
     def add_primary_button(self, rect: pygame.Rect, text: str, callback: Callable[[], None], enabled: bool = True) -> None:
-        mouse = pygame.mouse.get_pos()
+        mouse = self.logical_mouse_pos()
         hover = rect.collidepoint(mouse)
         if not enabled:
             fill = (170, 176, 160)
@@ -636,7 +987,7 @@ class GreenImpactClient:
         self.buttons.append(Button(rect, text, callback, enabled))
 
     def add_outline_button(self, rect: pygame.Rect, text: str, callback: Callable[[], None], enabled: bool = True, selected: bool = False) -> None:
-        mouse = pygame.mouse.get_pos()
+        mouse = self.logical_mouse_pos()
         hover = rect.collidepoint(mouse)
         if not enabled:
             fill = (230, 232, 222)
@@ -653,7 +1004,7 @@ class GreenImpactClient:
         self.buttons.append(Button(rect, text, callback, enabled))
 
     def add_gear_button(self, rect: pygame.Rect, callback: Callable[[], None], enabled: bool = True) -> None:
-        mouse = pygame.mouse.get_pos()
+        mouse = self.logical_mouse_pos()
         hover = rect.collidepoint(mouse)
         fill = (237, 242, 222) if not hover else (224, 237, 202)
         border = DARK if enabled else DISABLED
@@ -813,6 +1164,10 @@ class GreenImpactClient:
             names.append(value[:20])
         return names
 
+    def exit_game(self) -> None:
+        """Encerra o cliente a partir do menu principal."""
+        self.running = False
+
     async def start_single_player(self) -> None:
         self.menu_inputs["name"].value = self.home_name_input.value.strip() or "Jogador"
         self.menu_inputs["host"].value = DEFAULT_SERVER_HOST
@@ -860,8 +1215,22 @@ class GreenImpactClient:
             subtitle_rect, 34, self.font, TEXT, 24,
         )
 
-        how_rect = pygame.Rect(40, 668, 186, 46)
+        how_rect = pygame.Rect(40, 668, 166, 46)
         self.add_outline_button(how_rect, "Como jogar", lambda: asyncio.create_task(self.open_rules_from_game()), enabled=True)
+        settings_rect = pygame.Rect(218, 668, 166, 46)
+        self.add_outline_button(settings_rect, "Configurações", self.open_display_settings, enabled=True)
+        exit_rect = pygame.Rect(1068, 668, 166, 46)
+        self.add_button(
+            exit_rect,
+            "Sair do jogo",
+            self.exit_game,
+            enabled=True,
+            fill_color=(252, 238, 235),
+            hover_color=(247, 222, 217),
+            border_color=RED,
+            text_color=RED,
+            font=self.font_small,
+        )
         quote_rect = pygame.Rect(398, 658, 350, 56)
         self.draw_round_rect(quote_rect, (248, 244, 229), (210, 195, 145), radius=24)
         self.draw_wrapped_centered(
@@ -1656,6 +2025,8 @@ class GreenImpactClient:
                 self.draw_local_setup()
             elif self.ui_mode == "server_settings":
                 self.draw_server_settings()
+            elif self.ui_mode == "display_settings":
+                self.draw_display_settings()
             else:
                 self.draw_menu()
         else:
@@ -1670,6 +2041,17 @@ class GreenImpactClient:
             elif self.state.get("status") == "ended":
                 self.draw_ended()
         self.draw_messages()
+        if self.display_confirmation_deadline is not None:
+            # Impede cliques acidentais nos botões que estão atrás do aviso.
+            self.buttons.clear()
+            self.draw_display_confirmation_overlay()
+        # Escala a interface lógica para a resolução escolhida.
+        if self.display_surface.get_size() == (WINDOW_W, WINDOW_H):
+            self.display_surface.blit(self.screen, (0, 0))
+        else:
+            pygame.transform.smoothscale(
+                self.screen, self.display_surface.get_size(), self.display_surface
+            )
         pygame.display.flip()
 
     async def run(self) -> None:
@@ -1680,7 +2062,19 @@ class GreenImpactClient:
                 if event.type == pygame.QUIT:
                     self.running = False
                 elif event.type == pygame.KEYDOWN:
-                    if self.in_menu:
+                    if self.display_confirmation_deadline is not None:
+                        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                            self.confirm_display_settings()
+                        elif event.key == pygame.K_ESCAPE:
+                            self.revert_display_settings()
+                        # Enquanto a confirmação está aberta, outros atalhos e
+                        # campos ficam bloqueados para evitar mudanças em cascata.
+                        continue
+                    if event.key == pygame.K_F11:
+                        self.pending_resolution = self.display_resolution
+                        self.pending_fullscreen = not self.fullscreen
+                        self.apply_display_settings()
+                    elif self.in_menu:
                         if event.key == pygame.K_ESCAPE and self.ui_mode == "how_to_play":
                             self.close_rules()
                         elif event.key == pygame.K_ESCAPE and self.ui_mode != "home":
@@ -1700,16 +2094,23 @@ class GreenImpactClient:
                     elif event.key == pygame.K_ESCAPE:
                         self.running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    click_pos = self.logical_mouse_pos(event.pos)
+                    if self.display_confirmation_deadline is not None:
+                        for btn in reversed(self.buttons):
+                            if btn.rect.collidepoint(click_pos):
+                                btn.click()
+                                break
+                        continue
                     if self.in_menu:
                         clicked_input = False
                         if self.ui_mode == "connection":
                             for key, box in self.menu_inputs.items():
-                                box.active = key in {"name", "room"} and box.rect.collidepoint(event.pos)
+                                box.active = key in {"name", "room"} and box.rect.collidepoint(click_pos)
                                 clicked_input = clicked_input or box.active
                             self.home_name_input.active = False
                         elif self.ui_mode == "server_settings":
                             for key, box in self.menu_inputs.items():
-                                box.active = self.manual_server_mode and key in {"host", "port"} and box.rect.collidepoint(event.pos)
+                                box.active = self.manual_server_mode and key in {"host", "port"} and box.rect.collidepoint(click_pos)
                                 clicked_input = clicked_input or box.active
                             self.home_name_input.active = False
                         elif self.ui_mode == "local_setup":
@@ -1719,10 +2120,10 @@ class GreenImpactClient:
                             for box in self.menu_inputs.values():
                                 box.active = False
                             for box in self.local_name_inputs[:self.local_count]:
-                                box.active = box.rect.collidepoint(event.pos)
+                                box.active = box.rect.collidepoint(click_pos)
                                 clicked_input = clicked_input or box.active
                         elif self.ui_mode == "home":
-                            self.home_name_input.active = self.home_name_input.rect.collidepoint(event.pos)
+                            self.home_name_input.active = self.home_name_input.rect.collidepoint(click_pos)
                             clicked_input = self.home_name_input.active
                             for box in self.menu_inputs.values():
                                 box.active = False
@@ -1733,9 +2134,12 @@ class GreenImpactClient:
                         if clicked_input:
                             continue
                     for btn in reversed(self.buttons):
-                        if btn.rect.collidepoint(event.pos):
+                        if btn.rect.collidepoint(click_pos):
                             btn.click()
                             break
+
+            # Verifica o prazo de confirmação das alterações de vídeo.
+            self.update_display_confirmation()
 
             # Atualiza a animação do dado antes de redesenhar.
             # A versão anterior iniciava a animação, mas não chamava esta

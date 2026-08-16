@@ -9,7 +9,8 @@
       "Diminuição do tempo de permanência na escola",
       "Aumento da privatização do ensino"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A qualidade do ensino depende fortemente de quem está em sala de aula; pense em uma estratégia que melhore continuamente a preparação dos educadores."
   },
   {
     "id": "medium-002",
@@ -21,7 +22,8 @@
       "Equidade no acesso a tecnologias educacionais",
       "Redução de taxas de evasão escolar"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "Ter tecnologia disponível não basta: o desafio é impedir que renda, localização ou infraestrutura determinem quem consegue usá-la para aprender."
   },
   {
     "id": "medium-003",
@@ -33,7 +35,8 @@
       "Taxa de crescimento da população urbana",
       "Índice de qualidade do ar"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A ODS 8 relaciona trabalho decente a crescimento econômico; procure um indicador que meça a evolução da produção econômica por pessoa."
   },
   {
     "id": "medium-004",
@@ -45,7 +48,8 @@
       "Promover a educação de qualidade",
       "Garantir a saúde e o bem-estar"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A primeira ODS trata de eliminar uma das formas mais básicas de privação socioeconômica."
   },
   {
     "id": "medium-005",
@@ -57,7 +61,8 @@
       "Igualdade de gênero",
       "Água limpa e saneamento"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Associe a ODS 2 à alimentação: ela combina o combate à fome com a forma sustentável de produzir alimentos."
   },
   {
     "id": "medium-006",
@@ -69,7 +74,8 @@
       "Garantir uma vida saudável e promover o bem-estar para todos",
       "Proteger a vida marinha."
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "A ODS 3 está diretamente ligada à condição física e mental das pessoas ao longo da vida."
   },
   {
     "id": "medium-007",
@@ -81,7 +87,8 @@
       "Educação de qualidade",
       "Trabalho decente e crescimento econômico."
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "A ODS 4 é a meta global ligada ao acesso, inclusão e qualidade do processo de ensino e aprendizagem."
   },
   {
     "id": "medium-008",
@@ -93,7 +100,8 @@
       "Promover a inovação e infraestrutura",
       "Reduzir a desigualdade social"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A ODS 5 busca superar diferenças de direitos, oportunidades e poder entre homens e mulheres."
   },
   {
     "id": "medium-009",
@@ -105,7 +113,8 @@
       "Reduzir a desigualdade dentro e entre países.",
       "Promover a igualdade de gênero e empoderar as mulheres e meninas."
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A ODS 6 reúne dois serviços básicos intimamente ligados à saúde pública e à gestão dos recursos hídricos."
   },
   {
     "id": "medium-010",
@@ -117,7 +126,8 @@
       "Redução das desigualdades.",
       "Cidades e comunidades sustentáveis."
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A ODS 7 trata de garantir energia que seja acessível e, ao mesmo tempo, compatível com uma transição de baixo impacto ambiental."
   },
   {
     "id": "medium-011",
@@ -129,7 +139,8 @@
       "Assegurar padrões de produção e consumo sustentáveis.",
       "Promover o trabalho decente e o crescimento econômico."
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "A ODS 8 combina duas ideias: condições dignas de emprego e desenvolvimento econômico capaz de incluir mais pessoas."
   },
   {
     "id": "medium-012",
@@ -141,7 +152,8 @@
       "Proteger, recuperar e promover o uso sustentável dos ecossistemas terrestres.",
       "Garantir o acesso à energia barata, confiável, sustentável e moderna para todos."
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Pense no trio infraestrutura, indústria e novas tecnologias: a ODS 9 procura tornar esses elementos mais resistentes, inclusivos e sustentáveis."
   },
   {
     "id": "medium-013",
@@ -153,7 +165,8 @@
       "Garantir padrões de produção e consumo sustentáveis.",
       "Construir infraestruturas resilientes, promover a industrialização inclusiva e sustentável, e fomentar a inovação."
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A ODS 10 olha para diferenças de renda, oportunidades e inclusão tanto dentro de cada país quanto entre países."
   },
   {
     "id": "medium-014",
@@ -165,7 +178,8 @@
       "Aumentar a construção de arranha-céus.",
       "Aumentar o consumo de produtos reciclados."
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A ODS 11 trata do lugar onde grande parte da população vive: cidades precisam acolher, proteger, resistir a riscos e reduzir impactos ambientais."
   },
   {
     "id": "medium-015",
@@ -177,7 +191,8 @@
       "Reduzir a produção industrial.",
       "Promover a independência econômica dos países em desenvolvimento."
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A ODS 12 questiona como bens são produzidos e consumidos, buscando reduzir desperdícios e impactos ao longo de todo o ciclo."
   },
   {
     "id": "medium-016",
@@ -189,7 +204,8 @@
       "Reduzir o uso de plásticos.",
       "Promover o transporte público."
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A ODS 13 é a meta diretamente dedicada a responder ao aquecimento do planeta e aos seus efeitos."
   },
   {
     "id": "medium-017",
@@ -201,7 +217,8 @@
       "Reduzir a produção industrial.",
       "Conservar os recursos marinhos para o desenvolvimento sustentável."
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "A ODS 14 está associada aos oceanos, mares e ao uso responsável dos recursos que vêm desses ambientes."
   },
   {
     "id": "medium-018",
@@ -213,7 +230,8 @@
       "Proteger, recuperar e promover o uso sustentável dos ecossistemas terrestres.",
       "Promover o transporte público."
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "A ODS 15 é a contraparte terrestre da ODS 14: pense em florestas, solos, habitats e biodiversidade em terra firme."
   },
   {
     "id": "medium-019",
@@ -225,7 +243,8 @@
       "Reduzir a fome",
       "Conservar os recursos marinhos"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A ODS 16 procura condições sociais em que conflitos sejam reduzidos e as pessoas possam confiar em justiça e instituições."
   },
   {
     "id": "medium-020",
@@ -237,7 +256,8 @@
       "Reduzir a cooperação internacional.",
       "Promover a independência econômica dos países em desenvolvimento."
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A última ODS funciona como uma ponte entre todas as outras: trata de recursos, cooperação e alianças para viabilizar as metas globais."
   },
   {
     "id": "medium-021",
@@ -249,7 +269,8 @@
       "Aumento da quantidade de plâncton nos oceanos",
       "Diminuição da salinidade dos oceanos"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "O oceano absorve parte do CO₂ da atmosfera; pense no efeito químico dessa absorção sobre o pH da água."
   },
   {
     "id": "medium-022",
@@ -261,7 +282,8 @@
       "Expansão de áreas de mineração submarina",
       "Construção de mais portos e infraestrutura costeira"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A melhor estratégia atua em duas frentes: diminuir o que chega ao mar como poluição e resguardar áreas importantes para a vida marinha."
   },
   {
     "id": "medium-023",
@@ -273,7 +295,8 @@
       "Aumento da produção de alimentos transgênicos",
       "Desperdício de alimentos em larga escala"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Fome zero depende de disponibilidade e também de acesso; observe qual medida ajuda os alimentos a chegarem de forma justa a quem precisa."
   },
   {
     "id": "medium-024",
@@ -285,7 +308,8 @@
       "Redução do acesso à educação para meninas",
       "Empoderamento feminino"
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "A igualdade de gênero avança quando mulheres ganham autonomia, voz e condições reais de participar das decisões sociais e econômicas."
   },
   {
     "id": "medium-025",
@@ -297,7 +321,8 @@
       "Quantidade de carbono armazenada em uma área florestal",
       "Volume de poluição gerado por uma atividade industrial"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A pegada ecológica é uma medida de pressão ambiental: pense nos recursos consumidos e resíduos gerados por um modo de vida ou atividade."
   },
   {
     "id": "medium-026",
@@ -309,7 +334,8 @@
       "Aumenta os problemas ambientais",
       "Contribui para o equilíbrio dos ecossistemas e para a manutenção da vida no planeta"
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "Ecossistemas com diversidade de espécies tendem a ser mais funcionais e capazes de sustentar processos essenciais à vida."
   },
   {
     "id": "medium-027",
@@ -321,7 +347,8 @@
       "Energias que não emitem gases de efeito estufa",
       "Energias geradas a partir de combustíveis fósseis"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "O ponto central é a capacidade de a fonte se recompor naturalmente em uma escala compatível com o uso humano."
   },
   {
     "id": "medium-028",
@@ -333,7 +360,8 @@
       "Melhorar o acesso a serviços básicos como água, saneamento e transporte",
       "Aumentar a poluição do ar e da água nas áreas urbanas"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "Uma cidade inclusiva precisa assegurar que serviços essenciais e formas de deslocamento estejam disponíveis para diferentes grupos da população."
   },
   {
     "id": "medium-029",
@@ -345,7 +373,8 @@
       "Uso racional de energia visando a redução do desperdício",
       "Uso indiscriminado de energia"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "Eficiência não é simplesmente consumir menos: é obter o mesmo serviço ou resultado usando energia de maneira mais racional."
   },
   {
     "id": "medium-030",
@@ -357,7 +386,8 @@
       "Aumenta a escassez de água",
       "Reduz a disponibilidade de água para as futuras gerações"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Água é base para pessoas e ecossistemas; preservar rios, aquíferos e nascentes ajuda a manter esses sistemas funcionando no futuro."
   },
   {
     "id": "medium-031",
@@ -369,7 +399,8 @@
       "Reduzir a pegada de carbono",
       "Desenvolver tecnologias sustentáveis"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Sustentabilidade social olha para relações humanas: oportunidades, inclusão, direitos e respeito às diferenças são elementos centrais."
   },
   {
     "id": "medium-032",
@@ -381,7 +412,8 @@
       "Aumento de barreiras comerciais",
       "Implementação de políticas de apoio à inovação"
     ],
-    "answer_index": 3
+    "answer_index": 3,
+    "expert_tip": "Inovação cresce quando existe um ambiente institucional que apoia pesquisa, novos negócios e desenvolvimento tecnológico."
   },
   {
     "id": "medium-033",
@@ -393,7 +425,8 @@
       "Gestão ambientalmente saudável",
       "Financiando a extração de combustíveis fósseis"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "A meta busca evitar que substâncias perigosas e resíduos causem danos ao ambiente e à saúde ao longo de seu ciclo de vida."
   },
   {
     "id": "medium-034",
@@ -405,7 +438,8 @@
       "Compensando emissões por meio de projetos de redução ou remoção de CO2",
       "Criando incentivos ao aumento das emissões"
     ],
-    "answer_index": 2
+    "answer_index": 2,
+    "expert_tip": "Créditos de carbono funcionam como um mecanismo de compensação: emissões em um lugar podem ser equilibradas por ações verificadas de redução ou remoção em outro."
   },
   {
     "id": "medium-035",
@@ -417,7 +451,8 @@
       "Saúde de Qualidade",
       "Educação de Qualidade"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Os ODS buscam reduzir impactos e ampliar bem-estar; desconfie de uma alternativa que incentive exatamente o contrário desse princípio."
   },
   {
     "id": "medium-036",
@@ -429,7 +464,8 @@
       "Limitar o acesso público a informações governamentais",
       "Reforçar a confidencialidade nos processos de auditoria"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Combater corrupção exige que decisões e gastos possam ser acompanhados e que agentes públicos respondam por seus atos."
   },
   {
     "id": "medium-037",
@@ -441,7 +477,8 @@
       "Equidade",
       "Cooperação"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "A Agenda 2030 procura equilibrar necessidades sociais, ambientais e econômicas pensando também nas gerações futuras."
   },
   {
     "id": "medium-038",
@@ -453,7 +490,8 @@
       "Ensino sobre mudanças climáticas",
       "Campanhas de conscientização"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "A meta da ODS 13 não trata apenas de obras ou tecnologia: ela também busca aumentar conhecimento, capacidade e consciência sobre o clima."
   },
   {
     "id": "medium-039",
@@ -465,7 +503,8 @@
       "Redução do acesso à educação",
       "Restrição ao microcrédito"
     ],
-    "answer_index": 1
+    "answer_index": 1,
+    "expert_tip": "Procure uma política que permita a pessoas de baixa renda acessar contas, crédito, poupança e outros serviços econômicos formais."
   },
   {
     "id": "medium-040",
@@ -477,6 +516,7 @@
       "Restrição do acesso à tecnologia",
       "Aumento de conflitos comerciais"
     ],
-    "answer_index": 0
+    "answer_index": 0,
+    "expert_tip": "Parcerias globais se fortalecem quando países colaboram, compartilham conhecimento e coordenam recursos para objetivos comuns."
   }
 ]

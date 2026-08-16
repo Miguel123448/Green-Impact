@@ -240,6 +240,7 @@ async def start_question(room: Room, player: Player) -> None:
         prompt=question.prompt,
         options=list(question.options),
         answer_index=question.answer_index,
+        expert_tip=question.expert_tip,
         source=question.source,
     )
     room.deadline_ts = now() + QUESTION_TIME_LIMIT
@@ -541,8 +542,12 @@ async def handle_help(ws: Any, data: dict[str, Any]) -> None:
             room.deadline_ts += RESEARCH_BONUS_SECONDS
         await broadcast(room, f"{player.name} comprou pesquisa na internet (+{RESEARCH_BONUS_SECONDS}s). Custo: {HELP_COST} créditos. Saldo: {player.credits} créditos.")
     elif help_type == "expert":
-        tip = "Dica do especialista: pense no conceito central da ODS relacionada à pergunta e elimine opções que aumentam desigualdade, poluição ou desperdício."
-        await send(ws, {"type": "private_tip", "message": tip})
+        expert_tip = (room.current_question.expert_tip or "").strip()
+        if not expert_tip:
+            # Todas as perguntas do banco atual possuem expert_tip. Este fallback
+            # evita revelar a resposta caso um banco antigo seja carregado por engano.
+            expert_tip = "Dica indisponível para esta pergunta."
+        await send(ws, {"type": "private_tip", "message": f"Dica do especialista: {expert_tip}"})
         await broadcast(room, f"{player.name} comprou ajuda do especialista. Custo: {HELP_COST} créditos. Saldo: {player.credits} créditos.")
     elif help_type == "skip":
         event = f"{player.name} usou Pular pergunta. Custo: {HELP_COST} créditos. Saldo atual: {player.credits} créditos."

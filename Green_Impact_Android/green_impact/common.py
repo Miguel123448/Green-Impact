@@ -47,6 +47,7 @@ class Question:
     prompt: str
     options: list[str]
     answer_index: int
+    expert_tip: str = ""
     source: str = "Banco de perguntas do protótipo"
     eliminated_options: list[int] = field(default_factory=list)
 
