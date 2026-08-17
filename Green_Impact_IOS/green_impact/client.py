@@ -563,6 +563,8 @@ class GreenImpactClient:
                 status = " eliminado"
             elif p.get("stopped"):
                 status = " parou"
+            elif int(p.get("skip_turns") or 0) > 0:
+                status = " perde próxima"
             elif not p.get("connected", True):
                 status = " offline"
             pygame.draw.circle(self.screen, rgb, (x + 12, y + 12), 10)
@@ -603,6 +605,8 @@ class GreenImpactClient:
                 status = " elim."
             elif p.get("stopped"):
                 status = " parou"
+            elif int(p.get("skip_turns") or 0) > 0:
+                status = " perde próxima"
             elif not p.get("connected", True):
                 status = " off"
             pygame.draw.circle(self.screen, rgb, (px + 10, py + 11), 9)
@@ -724,11 +728,15 @@ class GreenImpactClient:
                 )
 
             # Os botões de ação ficam acima do histórico reservado no rodapé.
+            used_helps = set((cp or {}).get("used_helps") or [])
+            help_used_this_turn = bool(self.state.get("help_used_this_turn"))
+            saldo = int((cp or {}).get("credits", 0))
+            can_buy_help = my_turn and not help_used_this_turn and saldo >= HELP_COST
             self.add_button(pygame.Rect(x, button_y, 120, 38), "Parar", lambda: self.fire_and_forget({"type": "stop"}), enabled=my_turn)
-            self.add_button(pygame.Rect(x + 130, button_y, 150, 38), "Eliminar 2", lambda: self.fire_and_forget({"type": "help", "help": "eliminate2"}), enabled=my_turn and not self.state.get("help_used_this_turn"))
-            self.add_button(pygame.Rect(x + 290, button_y, 150, 38), "Pesquisa", lambda: self.fire_and_forget({"type": "help", "help": "research"}), enabled=my_turn and not self.state.get("help_used_this_turn"))
-            self.add_button(pygame.Rect(x + 450, button_y, 120, 38), "Especialista", lambda: self.fire_and_forget({"type": "help", "help": "expert"}), enabled=my_turn and not self.state.get("help_used_this_turn"))
-            self.add_button(pygame.Rect(x + 580, button_y, 125, 38), "Pular", lambda: self.fire_and_forget({"type": "help", "help": "skip"}), enabled=my_turn and not self.state.get("help_used_this_turn"))
+            self.add_button(pygame.Rect(x + 130, button_y, 150, 38), "Eliminar 2" if "eliminate2" not in used_helps else "Eliminar 2 (usada)", lambda: self.fire_and_forget({"type": "help", "help": "eliminate2"}), enabled=can_buy_help and "eliminate2" not in used_helps)
+            self.add_button(pygame.Rect(x + 290, button_y, 150, 38), "Pesquisa" if "research" not in used_helps else "Pesquisa (usada)", lambda: self.fire_and_forget({"type": "help", "help": "research"}), enabled=can_buy_help and "research" not in used_helps)
+            self.add_button(pygame.Rect(x + 450, button_y, 120, 38), "Especialista" if "expert" not in used_helps else "Esp. (usada)", lambda: self.fire_and_forget({"type": "help", "help": "expert"}), enabled=can_buy_help and "expert" not in used_helps)
+            self.add_button(pygame.Rect(x + 580, button_y, 125, 38), "Pular" if "skip" not in used_helps else "Pular (usada)", lambda: self.fire_and_forget({"type": "help", "help": "skip"}), enabled=can_buy_help and "skip" not in used_helps)
         else:
             turn_phase = self.state.get("turn_phase")
             pending_diff = self.state.get("pending_question_difficulty")

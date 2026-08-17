@@ -537,6 +537,7 @@ class GreenImpactAndroidApp(App):
             on_online=self.render_connection_menu,
             on_settings=self.open_server_settings,
             on_help=self.open_how_to_play,
+            on_credits=self.open_credits,
         )
 
         threading.Thread(target=self.detect_lan_ip, daemon=True).start()
@@ -925,15 +926,21 @@ class GreenImpactAndroidApp(App):
         self.clear_panel()
         self.add(self.title_label("Como jogar", 30))
         sections = [
-            ("Objetivo", "Chegue primeiro à casa 10/FIM respondendo perguntas sobre sustentabilidade e ODS."),
-            ("Turno", "No modo Um jogador, o peão avança 1 casa. No multijogador online/local, o jogador lança um dado e anda a quantidade sorteada."),
-            ("Perguntas", "No novo tabuleiro multiplayer: casas 1 a 5 usam perguntas fáceis, 6 a 9 usam médias e 10 a 12 usam difíceis. O cronômetro começa somente depois que a pergunta é iniciada."),
-            ("Sorte/Revés", "Casas com símbolo de planta ativam bônus ou perda de créditos de carbono em vez de pergunta."),
-            ("Créditos", "Você começa com 3 créditos de carbono. Ao acertar, ganha créditos conforme a dificuldade. Cada ajuda custa 3 créditos."),
-            ("Erro", "Ao errar, volta ao Início e perde todos os créditos. Se errar novamente depois do reinício, é eliminado."),
-            ("Parar", "Volta para o início, perde metade do saldo e deixa de participar das próximas rodadas."),
-            ("Ajudas", "Eliminar 2 alternativas, Pesquisa, Especialista e Pular pergunta. Só é possível usar uma ajuda por rodada."),
-            ("Vitória", "Vence quem completar o percurso primeiro. Em empate, vence quem tiver mais créditos."),
+            ("Objetivo", "Green Impact é um jogo educativo sobre os Objetivos de Desenvolvimento Sustentável (ODS), criado para estimular criatividade e pensamento crítico sobre desafios ambientais, econômicos e sociais."),
+            ("Preparação digital", "Tabuleiro, perguntas, dado, cronômetro e créditos são controlados pelo sistema. Cada jogador começa no Início com 3 Créditos de Carbono."),
+            ("Turno", "Na sua vez, jogue o dado e avance o número de casas sorteado. Ao cair em uma casa de pergunta, toque em Iniciar pergunta quando estiver pronto."),
+            ("Dificuldade", "Verde = Fácil; Amarelo/Laranja = Médio; Vermelho = Difícil."),
+            ("Acerto", "Ao acertar, receba créditos conforme a dificuldade: Fácil = 1; Médio = 2; Difícil = 3."),
+            ("Erro ou não responder", "Retorne à casa de onde partiu no turno, pague em créditos o número de casas retornadas e fique uma rodada sem jogar. O saldo nunca fica abaixo de 0."),
+            ("Ajudas", "Cada ajuda custa 3 créditos. Só é possível usar uma ajuda por rodada e cada tipo de carta pode ser usado apenas uma vez por partida."),
+            ("Ajuda do especialista", "Exibe uma dica personalizada relacionada à pergunta atual."),
+            ("Eliminar duas alternativas", "Remove duas das quatro alternativas incorretas."),
+            ("Pesquisa rápida", "Acrescenta 20 segundos ao cronômetro para uma pesquisa rápida na internet."),
+            ("Pular pergunta", "Encerra a pergunta atual sem selecionar uma alternativa e conclui o turno."),
+            ("Tempo", "Cada pergunta possui 40 segundos para resposta ou para decidir pelo uso de uma ajuda."),
+            ("Sorte / Revés", "Casas especiais aplicam automaticamente bônus ou perdas de Créditos de Carbono; o saldo nunca fica negativo."),
+            ("Parar", "Volta para o Início, perde metade do saldo e deixa de participar das rodadas seguintes."),
+            ("Chegada", "As condições de chegada e encerramento da partida são aplicadas automaticamente pelo sistema digital."),
         ]
         for title, body in sections:
             c = self.card()
@@ -942,6 +949,28 @@ class GreenImpactAndroidApp(App):
             self.add(c)
         self.add(self.make_button("Voltar", self.close_how_to_play, height=54))
 
+    def open_credits(self) -> None:
+        self.current_screen = "credits"
+        self.apply_layout_for_current_mode()
+        self.clear_panel()
+        self.add(self.title_label("Créditos", 30))
+        self.add(self.label("[b]Green Impact: A Jornada Sustentável[/b]", 18, False, DARK, min_height=42, halign="center"))
+
+        c = self.card()
+        c.add_widget(self.label("[b]Elaborando por:[/b]\nPaulo Silva Barroso e Prof.ª Marcele Elisa Fontana.", 15, False, TEXT, min_height=78))
+        self.finalize_card(c)
+        self.add(c)
+
+        c = self.card()
+        c.add_widget(self.label("[b]Digitalizado por:[/b]\nMiguel Pereira de Lemos", 15, False, TEXT, min_height=68))
+        self.finalize_card(c)
+        self.add(c)
+
+        logos = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(330), spacing=dp(10))
+        logos.add_widget(Image(source=str(ASSET_DIR / "ufpe_banner.jpg"), fit_mode="contain", size_hint_y=None, height=dp(120)))
+        logos.add_widget(Image(source=str(ASSET_DIR / "gamification_banner.jpg"), fit_mode="contain", size_hint_y=None, height=dp(200)))
+        self.add(logos)
+        self.add(self.make_button("Voltar", self.render_main_menu, height=54))
 
     def start_dice_animation(self) -> None:
         """Anima o widget permanente do dado sem reconstruir a tela."""
@@ -1271,6 +1300,8 @@ class GreenImpactAndroidApp(App):
                 status = " | eliminado"
             elif p.get("stopped"):
                 status = " | parou"
+            elif int(p.get("skip_turns") or 0) > 0:
+                status = " | perde próxima rodada"
             elif not p.get("connected", True):
                 status = " | offline"
             prefix = "▶ " if p.get("id") == current_id else "• "
@@ -1382,11 +1413,27 @@ class GreenImpactAndroidApp(App):
 
         helps = self.card(padding=8, spacing=6)
         helps.add_widget(self.label("Ajudas", 18, True, DARK, min_height=30))
+        helps.add_widget(self.label("Cada carta pode ser utilizada apenas uma vez por partida.", 12, False, TEXT, min_height=28))
+        used_helps = set((cp or {}).get("used_helps") or [])
+        help_used_this_turn = bool(self.state.get("help_used_this_turn"))
+        no_credit = isinstance(saldo, int) and saldo < 3
         grid = self.button_grid(cols=2, height=174)
-        grid.add_widget(self.make_button("Eliminar 2 alternativas", lambda: self.send({"type": "help", "help": "eliminate2"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
-        grid.add_widget(self.make_button("Pesquisa (+20s)", lambda: self.send({"type": "help", "help": "research"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
-        grid.add_widget(self.make_button("Especialista", lambda: self.send({"type": "help", "help": "expert"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
-        grid.add_widget(self.make_button("Pular pergunta", lambda: self.send({"type": "help", "help": "skip"}), disabled=(not my_turn or self.state.get("help_used_this_turn")), height=52))
+
+        def add_help_button(label: str, help_type: str) -> None:
+            already_used = help_type in used_helps
+            shown = f"{label} (usada)" if already_used else label
+            disabled = (not my_turn) or help_used_this_turn or no_credit or already_used
+            grid.add_widget(self.make_button(
+                shown,
+                lambda h=help_type: self.send({"type": "help", "help": h}),
+                disabled=disabled,
+                height=52,
+            ))
+
+        add_help_button("Eliminar 2 alternativas", "eliminate2")
+        add_help_button("Pesquisa (+20s)", "research")
+        add_help_button("Especialista", "expert")
+        add_help_button("Pular pergunta", "skip")
         helps.add_widget(grid)
         self.finalize_card(helps)
         self.add(helps)

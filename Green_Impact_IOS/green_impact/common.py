@@ -31,7 +31,8 @@ class Player:
     color: str | None = None
     position: int = 0
     credits: int = 3
-    reset_used: bool = False
+    skip_turns: int = 0
+    used_helps: list[str] = field(default_factory=list)
     eliminated: bool = False
     stopped: bool = False
     connected: bool = True
@@ -87,6 +88,9 @@ class Room:
     local_multiplayer: bool = False
     last_roll: int | None = None
     special_event: str | None = None
+    # Posição em que o jogador iniciou o turno, usada para devolver o peão
+    # à casa de origem quando a pergunta é respondida incorretamente.
+    turn_start_position: int | None = None
 
     def ordered_players(self) -> list[Player]:
         return list(self.players.values())
@@ -112,4 +116,5 @@ class Room:
             "local_multiplayer": self.local_multiplayer,
             "last_roll": self.last_roll,
             "special_event": self.special_event,
+            "turn_start_position": self.turn_start_position,
         }

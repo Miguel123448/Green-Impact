@@ -342,7 +342,7 @@ class ServerCard(RoundedPanel):
 
 
 class MobileHomeHUD(FloatLayout):
-    def __init__(self, *, asset_dir: Path, on_create: Callable[[], None], on_join: Callable[[], None], on_solo: Callable[[], None], on_local: Callable[[], None], on_online: Callable[[], None], on_settings: Callable[[], None], on_help: Callable[[], None], **kwargs):
+    def __init__(self, *, asset_dir: Path, on_create: Callable[[], None], on_join: Callable[[], None], on_solo: Callable[[], None], on_local: Callable[[], None], on_online: Callable[[], None], on_settings: Callable[[], None], on_help: Callable[[], None], on_credits: Callable[[], None], **kwargs):
         super().__init__(**kwargs)
         with self.canvas.before:
             Color(0.10, 0.22, 0.08, 1)
@@ -380,8 +380,11 @@ class MobileHomeHUD(FloatLayout):
         quick_row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(52), spacing=dp(12), padding=[dp(8), 0, dp(8), 0])
         self.quick_row = quick_row
         help_button = HudButton(text="Como jogar", fill=(0.98, 0.97, 0.92, 0.96), pressed=LIGHT_GREEN, border=GOLD, foreground=DARK_GREEN, font_size=dp(13))
+        credits_button = HudButton(text="Créditos", fill=(0.98, 0.97, 0.92, 0.96), pressed=LIGHT_GREEN, border=GOLD, foreground=DARK_GREEN, font_size=dp(13))
         help_button.bind(on_release=lambda *_: on_help())
+        credits_button.bind(on_release=lambda *_: on_credits())
         quick_row.add_widget(help_button)
+        quick_row.add_widget(credits_button)
         root.add_widget(quick_row)
 
         panel_host = FloatLayout(size_hint_y=0.57)

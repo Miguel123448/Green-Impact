@@ -244,8 +244,9 @@ class GreenImpactClient:
         self.name = name
         self.join_room = room.upper() if room else None
         self.in_menu = start_in_menu
-        self.ui_mode = "home" if start_in_menu else "game"  # home, connection, how_to_play, game
+        self.ui_mode = "home" if start_in_menu else "game"  # home, connection, how_to_play, credits, game
         self.rules_return_context: tuple[bool, str] | None = None
+        self.rules_page = 0
         self.ws: Any = None
         self.state: dict[str, Any] | None = None
         self.you: str | None = None
@@ -253,6 +254,10 @@ class GreenImpactClient:
         self.server_delta = 0.0
         self.messages: list[str] = []
         self.private_tip: str | None = None
+        self.private_tip_question_id: str | None = None
+        # A dica do especialista pode ser expandida/ocultada pelo jogador.
+        # Quando uma nova dica privada chega, o painel abre automaticamente.
+        self.expert_tip_expanded = False
         self.running = True
         self.buttons: list[Button] = []
         self.timeout_sent_for_question: str | None = None
@@ -322,6 +327,8 @@ class GreenImpactClient:
         self.board_new_img = self.load_image(ASSET_DIR / "board_new.jpg", self.board_new_rect.size)
         self.board_new_game_img = self.load_image(ASSET_DIR / "board_new.jpg", self.board_new_game_rect.size)
         self.logo_img = self.load_image(ASSET_DIR / "logo.png", (320, 160), keep_alpha=True)
+        self.ufpe_banner_img = self.load_image(ASSET_DIR / "ufpe_banner.jpg", (300, 95))
+        self.gamification_banner_img = self.load_image(ASSET_DIR / "gamification_banner.jpg", (300, 205))
 
         initial_host, initial_port = split_server_url(server_url or f"ws://{DEFAULT_SERVER_HOST}:{DEFAULT_SERVER_PORT}")
         # Campos do menu. Eles ficam mais abaixo para não sobrepor o título/descrição.
@@ -685,6 +692,8 @@ class GreenImpactClient:
         self.you = None
         self.room_code = None
         self.timeout_sent_for_question = None
+        self.private_tip = None
+        self.private_tip_question_id = None
 
         try:
             self.messages.append("Conectando ao servidor selecionado...")
@@ -760,6 +769,8 @@ class GreenImpactClient:
         self.state = None
         self.you = None
         self.room_code = None
+        self.private_tip = None
+        self.private_tip_question_id = None
         self.in_menu = True
         self.ui_mode = "home"
         self.connecting = False
@@ -775,6 +786,7 @@ class GreenImpactClient:
         """
         if self.ui_mode != "how_to_play":
             self.rules_return_context = (self.in_menu, self.ui_mode)
+            self.rules_page = 0
         self.in_menu = True
         self.ui_mode = "how_to_play"
 
@@ -802,13 +814,29 @@ class GreenImpactClient:
                     self.state = data.get("room")
                     if self.state:
                         self.room_code = self.state.get("code") or self.room_code
+                        current_question = self.state.get("current_question") or {}
+                        current_qid = str(current_question.get("id") or "")
+                        # A dica do especialista pertence somente à pergunta em que
+                        # foi comprada. Ao encerrar/trocar a questão, removemos o
+                        # painel para que a dica antiga nunca apareça na próxima.
+                        if self.private_tip_question_id and current_qid != self.private_tip_question_id:
+                            self.private_tip = None
+                            self.private_tip_question_id = None
+                            self.expert_tip_expanded = False
                 elif msg_type == "error":
                     message = str(data.get("message"))
                     self.connection_error = message
                     self.messages.append("Erro: " + message)
                 elif msg_type == "private_tip":
-                    self.private_tip = str(data.get("message"))
-                    self.messages.append(self.private_tip)
+                    self.private_tip = str(data.get("message") or "").strip() or None
+                    current_question = (self.state or {}).get("current_question") or {}
+                    self.private_tip_question_id = str(
+                        data.get("question_id") or current_question.get("id") or ""
+                    ) or None
+                    # Sempre abre automaticamente a dica recém-comprada. O painel
+                    # é desenhado acima dos dois HUDs de partida, portanto funciona
+                    # tanto no tabuleiro clássico quanto no tabuleiro com dado.
+                    self.expert_tip_expanded = True
                 elif msg_type == "pong":
                     pass
         except Exception as exc:
@@ -1168,6 +1196,11 @@ class GreenImpactClient:
         """Encerra o cliente a partir do menu principal."""
         self.running = False
 
+    def open_credits(self) -> None:
+        """Abre os créditos do projeto a partir do menu principal."""
+        self.in_menu = True
+        self.ui_mode = "credits"
+
     async def start_single_player(self) -> None:
         self.menu_inputs["name"].value = self.home_name_input.value.strip() or "Jogador"
         self.menu_inputs["host"].value = DEFAULT_SERVER_HOST
@@ -1219,6 +1252,8 @@ class GreenImpactClient:
         self.add_outline_button(how_rect, "Como jogar", lambda: asyncio.create_task(self.open_rules_from_game()), enabled=True)
         settings_rect = pygame.Rect(218, 668, 166, 46)
         self.add_outline_button(settings_rect, "Configurações", self.open_display_settings, enabled=True)
+        credits_rect = pygame.Rect(760, 668, 166, 46)
+        self.add_outline_button(credits_rect, "Créditos", self.open_credits, enabled=True)
         exit_rect = pygame.Rect(1068, 668, 166, 46)
         self.add_button(
             exit_rect,
@@ -1338,6 +1373,7 @@ class GreenImpactClient:
             self.draw_wrapped("Erro: " + self.connection_error, x, panel.bottom - 120, 72, self.font_small, RED, 22)
 
     def draw_how_to_play(self) -> None:
+        """Regras digitais baseadas no manual físico fornecido pelo projeto."""
         self.screen.fill(BG)
         if self.board_img:
             self.screen.blit(self.board_img, self.board_rect)
@@ -1347,26 +1383,78 @@ class GreenImpactClient:
         panel = pygame.Rect(535, 20, 720, 682)
         pygame.draw.rect(self.screen, PANEL, panel, border_radius=18)
         pygame.draw.rect(self.screen, DARK, panel, width=2, border_radius=18)
-        x, y = panel.x + 36, panel.y + 28
+        x, y = panel.x + 30, panel.y + 24
         self.draw_text("Como jogar", (x, y), self.font_title, DARK)
+        self.draw_text(f"Página {self.rules_page + 1}/2", (panel.right - 115, y + 12), self.font_small, TEXT)
         y += 58
 
-        sections = [
-            ("Objetivo", "Chegue primeiro à casa 10/FIM respondendo perguntas sobre sustentabilidade e ODS."),
-            ("Turno", "No modo Um jogador, o peão avança 1 casa. No multijogador online/local, o jogador lança um dado e anda a quantidade sorteada."),
-            ("Perguntas", "No novo tabuleiro multiplayer: casas 1 a 5 usam perguntas fáceis, 6 a 9 usam médias e 10 a 12 usam difíceis. O cronômetro começa quando a pergunta é iniciada."),
-            ("Sorte/Revés", "Casas com símbolo de planta ativam um bônus ou revés de créditos de carbono em vez de pergunta."),
-            ("Créditos", "Você começa com 3 créditos de carbono. Ao acertar, ganha créditos conforme a dificuldade. As ajudas custam 3 créditos."),
-            ("Erro", "Ao errar, volta ao Início e perde todos os créditos. Se errar novamente depois do reinício, é eliminado."),
-            ("Parar", "Volta para o início, perde metade do saldo e deixa de participar das próximas rodadas."),
-            ("Ajudas", "Eliminar 2 alternativas, Pesquisa, Especialista e Pular pergunta. Só é possível usar uma ajuda por rodada."),
-            ("Vitória", "Vence quem completar o percurso primeiro. Se houver empate, ganha quem tiver mais créditos."),
+        pages = [
+            [
+                ("Objetivo", "Green Impact é um jogo educativo sobre os Objetivos de Desenvolvimento Sustentável (ODS), criado para estimular criatividade e pensamento crítico sobre desafios ambientais, econômicos e sociais."),
+                ("Preparação digital", "O sistema controla tabuleiro, perguntas, dado, cronômetro e créditos. Cada jogador começa no Início com 3 Créditos de Carbono."),
+                ("Turno", "Na sua vez, jogue o dado e avance o número de casas sorteado. Ao cair em uma casa de pergunta, inicie a questão quando estiver pronto."),
+                ("Dificuldade", "As perguntas são divididas em três níveis: Verde = Fácil, Amarelo/Laranja = Médio e Vermelho = Difícil."),
+                ("Acerto", "Ao acertar, passe a vez e receba: Fácil = 1 crédito; Médio = 2 créditos; Difícil = 3 créditos."),
+                ("Erro / não responder", "Retorne à casa de onde partiu no turno, pague em créditos o número de casas retornadas e fique uma rodada sem jogar. O saldo nunca fica abaixo de 0."),
+            ],
+            [
+                ("Ajudas", "Cada ajuda custa 3 créditos. Só é possível usar uma ajuda por rodada e cada tipo de carta pode ser usado apenas uma vez por partida."),
+                ("Especialista", "Receba uma dica personalizada relacionada à pergunta atual."),
+                ("Eliminar duas", "Duas das quatro alternativas incorretas são removidas."),
+                ("Pesquisa rápida", "Receba 20 segundos adicionais para realizar uma pesquisa rápida na internet."),
+                ("Pular pergunta", "A pergunta atual é encerrada sem escolher alternativa e o turno é concluído."),
+                ("Tempo", "Cada pergunta possui 40 segundos para resposta ou para decidir pelo uso de uma ajuda."),
+                ("Sorte / Revés", "Casas especiais aplicam automaticamente bônus ou perdas de Créditos de Carbono; o saldo nunca fica negativo."),
+                ("Parar", "Ao escolher Parar, volte ao Início, perca metade dos créditos e deixe de participar das rodadas seguintes."),
+                ("Chegada", "As condições de chegada e encerramento da partida são aplicadas automaticamente pelo sistema digital."),
+            ],
         ]
-        for title, body in sections:
-            self.draw_text(title + ":", (x, y), self.font_small, DARK)
-            y = self.draw_wrapped(body, x + 118, y, 66, self.font_small, TEXT, 20)
-            y += 6
-        self.add_button(pygame.Rect(x, panel.bottom - 62, 180, 44), "Voltar", self.close_rules, enabled=True)
+
+        for title, body in pages[self.rules_page]:
+            self.draw_text(title + ":", (x, y), self.font_tiny, DARK)
+            y = self.draw_wrapped(body, x + 126, y, 66, self.font_tiny, TEXT, 18)
+            y += 5
+
+        if self.rules_page > 0:
+            self.add_outline_button(pygame.Rect(x, panel.bottom - 56, 150, 40), "Anterior", lambda: setattr(self, "rules_page", self.rules_page - 1), enabled=True)
+        if self.rules_page < 1:
+            self.add_outline_button(pygame.Rect(x + 165, panel.bottom - 56, 150, 40), "Próxima", lambda: setattr(self, "rules_page", self.rules_page + 1), enabled=True)
+        self.add_button(pygame.Rect(panel.right - 180, panel.bottom - 56, 150, 40), "Voltar", self.close_rules, enabled=True)
+
+    def draw_credits(self) -> None:
+        """Créditos do jogo e da adaptação digital."""
+        self.screen.fill(BG)
+        panel = pygame.Rect(90, 42, 1100, 620)
+        self.draw_round_rect(panel, (248, 246, 235), (194, 171, 111), radius=28)
+
+        self.draw_center_text("Créditos", pygame.Rect(panel.x, panel.y + 24, panel.w, 52), self.font_title, DARK)
+        self.draw_wrapped_centered(
+            "Green Impact: A Jornada Sustentável",
+            pygame.Rect(panel.x + 80, panel.y + 82, panel.w - 160, 34), 64, self.font, TEXT, 22
+        )
+
+        left = panel.x + 72
+        self.draw_text("Elaborando por:", (left, panel.y + 145), self.font_big, DARK)
+        self.draw_text("Paulo Silva Barroso e Prof.ª Marcele Elisa Fontana.", (left, panel.y + 192), self.font, TEXT)
+        self.draw_text("Digitalizado por:", (left, panel.y + 238), self.font_big, DARK)
+        self.draw_text("Miguel Pereira de Lemos", (left, panel.y + 285), self.font, TEXT)
+
+        ufpe_card = pygame.Rect(panel.x + 72, panel.y + 342, 430, 150)
+        game_card = pygame.Rect(panel.x + 595, panel.y + 325, 390, 266)
+        self.draw_round_rect(ufpe_card, WHITE, (210, 195, 145), radius=18)
+        self.draw_round_rect(game_card, WHITE, (210, 195, 145), radius=18)
+        if self.ufpe_banner_img:
+            ufpe = pygame.transform.smoothscale(self.ufpe_banner_img, (400, 127))
+            self.screen.blit(ufpe, (ufpe_card.x + 15, ufpe_card.y + 12))
+        else:
+            self.draw_center_text("UFPE", ufpe_card, self.font_big, DARK)
+        if self.gamification_banner_img:
+            game = pygame.transform.smoothscale(self.gamification_banner_img, (360, 246))
+            self.screen.blit(game, (game_card.x + 15, game_card.y + 10))
+        else:
+            self.draw_center_text("GAMEFICATION ENGINEERING PROJECT", game_card, self.font, DARK)
+
+        self.add_button(pygame.Rect(panel.x + 72, panel.bottom - 62, 180, 44), "Voltar", lambda: setattr(self, "ui_mode", "home"), enabled=True)
 
     def draw_menu(self) -> None:
         self.screen.fill(BG)
@@ -1579,36 +1667,40 @@ class GreenImpactClient:
 
     def draw_help_section(self, x: int, y: int, width: int, cp: dict[str, Any] | None, my_turn: bool, compact: bool = False) -> int:
         saldo = int((cp or {}).get("credits", 0))
+        used_helps = set((cp or {}).get("used_helps") or [])
         help_used = bool((self.state or {}).get("help_used_this_turn"))
-        disabled = (not my_turn) or help_used or saldo < HELP_COST
+        globally_disabled = (not my_turn) or help_used or saldo < HELP_COST
         header_h = 27 if compact else 34
         btn_h = 32 if compact else 46
         gap = 6 if compact else 8
         section_h = header_h + btn_h * 2 + gap * 3
         rect = pygame.Rect(x, y, width, section_h)
         self.draw_card(rect, HELP_CARD, (165, 120, 20), 2, 11)
-        status = f"AJUDAS — custo {HELP_COST} cada; não são respostas"
+        status = f"AJUDAS — custo {HELP_COST} cada; cada carta só pode ser usada 1x"
         if help_used:
-            status += " | já usada"
+            status += " | já usou ajuda nesta rodada"
         elif saldo < HELP_COST:
             status += " | saldo insuficiente"
-        self.draw_text(status, (x + 10, y + 6), self.font_tiny if compact else self.font_button_small, RED if disabled else DARK)
+        self.draw_text(status, (x + 10, y + 6), self.font_tiny if compact else self.font_button_small, RED if globally_disabled else DARK)
         col_gap = 7
         btn_w = (width - 20 - col_gap) // 2
         labels = [
-            (f"Eliminar 2 respostas\nCusto: {HELP_COST}", {"type": "help", "help": "eliminate2"}),
-            (f"Pesquisa +{RESEARCH_BONUS_SECONDS}s\nCusto: {HELP_COST}", {"type": "help", "help": "research"}),
-            (f"Dica do especialista\nCusto: {HELP_COST}", {"type": "help", "help": "expert"}),
-            (f"Pular pergunta\nCusto: {HELP_COST}", {"type": "help", "help": "skip"}),
+            ("eliminate2", f"Eliminar 2 respostas\nCusto: {HELP_COST}"),
+            ("research", f"Pesquisa +{RESEARCH_BONUS_SECONDS}s\nCusto: {HELP_COST}"),
+            ("expert", f"Dica do especialista\nCusto: {HELP_COST}"),
+            ("skip", f"Pular pergunta\nCusto: {HELP_COST}"),
         ]
         start_y = y + header_h
-        for i, (label, payload) in enumerate(labels):
+        for i, (help_type, label) in enumerate(labels):
             bx = x + 7 + (i % 2) * (btn_w + col_gap)
             by = start_y + (i // 2) * (btn_h + gap)
+            already_used = help_type in used_helps
+            shown_label = label if not already_used else label.split("\n", 1)[0] + "\nUSADA NA PARTIDA"
+            payload = {"type": "help", "help": help_type}
             self.add_button(
-                pygame.Rect(bx, by, btn_w, btn_h), label,
+                pygame.Rect(bx, by, btn_w, btn_h), shown_label,
                 lambda p=payload: self.fire_and_forget(p),
-                enabled=not disabled,
+                enabled=(not globally_disabled) and (not already_used),
                 fill_color=HELP_FILL,
                 hover_color=(252, 237, 174),
                 border_color=(145, 105, 20),
@@ -1685,6 +1777,8 @@ class GreenImpactClient:
                 status = " eliminado"
             elif p.get("stopped"):
                 status = " parou"
+            elif int(p.get("skip_turns") or 0) > 0:
+                status = " perde próxima"
             elif not p.get("connected", True):
                 status = " offline"
             pygame.draw.circle(self.screen, rgb, (x + 12, y + 12), 10)
@@ -1725,6 +1819,8 @@ class GreenImpactClient:
                 status = " elim."
             elif p.get("stopped"):
                 status = " parou"
+            elif int(p.get("skip_turns") or 0) > 0:
+                status = " perde próxima"
             elif not p.get("connected", True):
                 status = " off"
             pygame.draw.circle(self.screen, rgb, (px + 9, py + 9), 7)
@@ -1869,6 +1965,113 @@ class GreenImpactClient:
             self.draw_wrapped("Aguardando o servidor preparar a próxima rodada...", bx, by, 70, self.font_small, TEXT)
         self.draw_mini_event_log(x, right.bottom - 60, content_w)
 
+    def active_expert_tip_for(self, question_id: str | None = None) -> str | None:
+        """Retorna a dica privada somente para a pergunta atualmente ativa."""
+        if not self.private_tip:
+            return None
+        current_question = ((self.state or {}).get("current_question") or {})
+        current_qid = str(question_id or current_question.get("id") or "")
+        if self.private_tip_question_id and current_qid != self.private_tip_question_id:
+            return None
+        return self.private_tip
+
+    def show_expert_tip(self) -> None:
+        """Reabre o painel da dica privada da pergunta atual."""
+        if self.active_expert_tip_for():
+            self.expert_tip_expanded = True
+
+    def hide_expert_tip(self) -> None:
+        """Oculta o painel sem apagar a dica; ela pode ser reaberta."""
+        self.expert_tip_expanded = False
+
+    def draw_expert_tip_panel(self, question_id: str | None = None) -> None:
+        """
+        Exibe a dica do especialista como um painel flutuante sobre o tabuleiro.
+
+        A v0.9.5 desenhava o cartão somente a partir do HUD clássico. Como o
+        tabuleiro atual usa ``draw_game_dice_board``, a dica era recebida pela
+        rede mas nunca renderizada. Agora este painel é chamado pelo ``draw``
+        depois de qualquer HUD de partida, então independe do modo de tabuleiro.
+        """
+        tip = self.active_expert_tip_for(question_id)
+        if not tip:
+            return
+
+        prefix = "Dica do especialista:"
+        if tip.lower().startswith(prefix.lower()):
+            tip = tip[len(prefix):].strip()
+
+        # Se o jogador ocultar a dica, permanece um botão visível para reabri-la.
+        if not self.expert_tip_expanded:
+            chip = pygame.Rect(28, WINDOW_H - 66, 285, 42)
+            self.add_button(
+                chip,
+                "Mostrar dica do especialista",
+                self.show_expert_tip,
+                enabled=True,
+                fill_color=(251, 247, 225),
+                hover_color=(255, 250, 220),
+                border_color=(165, 120, 20),
+                text_color=(125, 91, 18),
+                font=self.font_button_small,
+            )
+            return
+
+        # Escurece apenas o tabuleiro para destacar a dica sem interferir na
+        # pergunta, alternativas, saldo ou botões de ajuda do painel direito.
+        shade = pygame.Surface(self.board_new_game_rect.size, pygame.SRCALPHA)
+        shade.fill((10, 35, 20, 78))
+        self.screen.blit(shade, self.board_new_game_rect.topleft)
+
+        lines = wrap_text(tip, 62)
+        line_h = 22
+        panel_w = 620
+        panel_h = max(158, 88 + len(lines) * line_h)
+        panel_h = min(panel_h, 250)
+        rect = pygame.Rect(0, 0, panel_w, panel_h)
+        rect.center = (self.board_new_game_rect.centerx, self.board_new_game_rect.centery + 8)
+
+        # Sombra + cartão principal.
+        shadow = rect.move(5, 6)
+        pygame.draw.rect(self.screen, (80, 78, 55), shadow, border_radius=16)
+        self.draw_card(rect, (255, 252, 232), (167, 121, 18), 3, 16)
+
+        self.draw_text(
+            "DICA DO ESPECIALISTA",
+            (rect.x + 20, rect.y + 15),
+            self.font,
+            (120, 83, 8),
+        )
+        self.draw_text(
+            "Dica privada — somente você recebe esta informação.",
+            (rect.x + 20, rect.y + 45),
+            self.font_tiny,
+            (105, 105, 85),
+        )
+
+        # Botão no próprio cartão; como é adicionado por último, tem prioridade
+        # sobre os controles que estejam visualmente atrás do painel.
+        self.add_button(
+            pygame.Rect(rect.right - 104, rect.y + 12, 84, 32),
+            "Ocultar",
+            self.hide_expert_tip,
+            enabled=True,
+            fill_color=(247, 238, 199),
+            hover_color=(255, 246, 205),
+            border_color=(167, 121, 18),
+            text_color=(120, 83, 8),
+            font=self.font_tiny,
+        )
+
+        text_rect = pygame.Rect(rect.x + 18, rect.y + 70, rect.w - 36, rect.h - 86)
+        self.draw_card(text_rect, (252, 250, 239), (215, 199, 146), 1, 10)
+        ty = text_rect.y + 10
+        for line in lines:
+            if ty + line_h > text_rect.bottom:
+                break
+            self.draw_text(line, (text_rect.x + 12, ty), self.font_small, TEXT)
+            ty += line_h
+
     def draw_game_dice_board(self) -> None:
         """HUD do tabuleiro horizontal, com seções visuais compactas."""
         right = pygame.Rect(760, 20, 500, 682)
@@ -1905,10 +2108,17 @@ class GreenImpactClient:
             self.draw_text(f"Tempo: {remaining}s", (x, y), self.font, RED if remaining <= 10 else DARK)
             self.draw_text(diff_label, (x + 170, y + 3), self.font_tiny, DARK)
             y += 29
-            question_rect = pygame.Rect(x, y, content_w, 58)
+            # A altura da pergunta passa a acompanhar a quantidade real de
+            # linhas. O cartão fixo de 58 px cortava questões mais longas.
+            question_lines = wrap_text(q.get("prompt", ""), 53)
+            question_h = max(58, 14 + len(question_lines) * 17)
+            question_rect = pygame.Rect(x, y, content_w, question_h)
             self.draw_card(question_rect, ANSWER_FILL, SOFT_BORDER, 2, 10)
-            self.draw_wrapped(q.get("prompt", ""), x + 10, y + 7, 53, self.font_tiny, TEXT, 17)
-            y += 64
+            line_y = y + 7
+            for line in question_lines:
+                self.draw_text(line, (x + 10, line_y), self.font_tiny, TEXT)
+                line_y += 17
+            y += question_h + 6
             eliminated = set(q.get("eliminated_options") or [])
             letters = ["A", "B", "C", "D"]
             options = list(q.get("options") or [])
@@ -2003,6 +2213,8 @@ class GreenImpactClient:
         self.draw_event_log(535, 20, 720, 682)
 
     def draw_messages(self) -> None:
+        # A dica do especialista agora é um painel flutuante centralizado sobre
+        # o tabuleiro, portanto os avisos de conexão podem continuar no rodapé.
         if not self.messages:
             return
         messages = self.messages[-3:]
@@ -2021,6 +2233,8 @@ class GreenImpactClient:
                 self.draw_home_menu()
             elif self.ui_mode == "how_to_play":
                 self.draw_how_to_play()
+            elif self.ui_mode == "credits":
+                self.draw_credits()
             elif self.ui_mode == "local_setup":
                 self.draw_local_setup()
             elif self.ui_mode == "server_settings":
@@ -2041,6 +2255,14 @@ class GreenImpactClient:
             elif self.state.get("status") == "ended":
                 self.draw_ended()
         self.draw_messages()
+        # A dica é a última camada normal da partida: assim fica acima tanto do
+        # HUD quanto dos avisos temporários e o botão de reabrir nunca é coberto.
+        if (
+            not self.in_menu
+            and self.state
+            and self.state.get("status") == "playing"
+        ):
+            self.draw_expert_tip_panel()
         if self.display_confirmation_deadline is not None:
             # Impede cliques acidentais nos botões que estão atrás do aviso.
             self.buttons.clear()

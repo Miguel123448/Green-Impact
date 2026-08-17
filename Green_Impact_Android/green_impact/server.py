@@ -36,6 +36,14 @@ ROOM_BY_SOCKET: dict[Any, str] = {}
 PLAYER_BY_SOCKET: dict[Any, str] = {}
 QUESTIONS: dict[str, list[Question]] = {}
 
+VALID_HELP_TYPES = {"eliminate2", "research", "expert", "skip"}
+HELP_TYPE_LABELS = {
+    "eliminate2": "Eliminar 2 alternativas",
+    "research": "Pesquisa rápida",
+    "expert": "Ajuda do especialista",
+    "skip": "Pular pergunta",
+}
+
 
 def load_questions() -> dict[str, list[Question]]:
     mapping = {
@@ -126,20 +134,52 @@ async def next_turn(room: Room) -> None:
 
     active = active_player_ids(room)
     if not active:
-        await end_game(room, "todos os jogadores pararam ou foram eliminados")
+        await end_game(room, "não há jogadores ativos")
         return
 
     players = room.ordered_players()
+    player: Player | None = None
+    skipped_names: list[str] = []
+
+    # Procura o próximo jogador apto. Quem recebeu a penalidade de erro
+    # perde exatamente a próxima rodada e volta a participar normalmente
+    # nas rodadas seguintes.
     attempts = 0
     while attempts < len(players):
         room.current_turn_index = (room.current_turn_index + 1) % len(players)
-        player = players[room.current_turn_index]
-        if player.id in active:
-            break
+        candidate = players[room.current_turn_index]
         attempts += 1
-    else:
-        await end_game(room, "nenhum jogador ativo")
+        if candidate.id not in active:
+            continue
+        if candidate.skip_turns > 0:
+            candidate.skip_turns -= 1
+            skipped_names.append(candidate.name)
+            continue
+        player = candidate
+        break
+
+    # Se todos os jogadores ativos precisavam pular esta rodada, a rodada é
+    # considerada consumida e uma nova sequência começa imediatamente. Isso
+    # também mantém o modo Um jogador funcional.
+    if player is None and skipped_names:
+        attempts = 0
+        while attempts < len(players):
+            room.current_turn_index = (room.current_turn_index + 1) % len(players)
+            candidate = players[room.current_turn_index]
+            attempts += 1
+            if candidate.id in active:
+                player = candidate
+                break
+
+    if player is None:
+        await end_game(room, "nenhum jogador apto para continuar")
         return
+
+    if skipped_names:
+        if len(skipped_names) == 1:
+            room.event_log.append(f"{skipped_names[0]} ficou uma rodada sem jogar por causa do erro anterior.")
+        else:
+            room.event_log.append(f"{', '.join(skipped_names)} ficaram uma rodada sem jogar por causa do erro anterior.")
 
     room.current_player_id = player.id
     room.current_question = None
@@ -148,6 +188,7 @@ async def next_turn(room: Room) -> None:
     room.pending_question_difficulty = None
     room.special_event = None
     room.last_roll = None
+    room.turn_start_position = player.position
 
     if room.game_mode == "classic":
         if player.position < max_position_for_mode(room.game_mode):
@@ -161,7 +202,14 @@ async def next_turn(room: Room) -> None:
         await broadcast(room, f"Vez de {player.name}. Jogue o dado para avançar no tabuleiro.")
 
 
-async def after_landing(room: Room, player: Player) -> None:
+async def after_landing(room: Room, player: Player, *, movement_source: str = "other") -> None:
+    """Processa somente os efeitos provocados pelo movimento que acabou de ocorrer.
+
+    Casas de sorte/revés devem ser ativadas apenas quando o peão *cai nelas
+    por causa de uma jogada de dado*. Retornos causados por erro/timeout não
+    constituem uma nova chegada à casa e, portanto, nunca podem sortear o
+    evento novamente.
+    """
     max_pos = max_position_for_mode(room.game_mode)
     if player.position >= max_pos:
         room.pending_question_difficulty = difficulty_for_position(player.position, room.game_mode)
@@ -170,6 +218,12 @@ async def after_landing(room: Room, player: Player) -> None:
         return
 
     if room.game_mode != "classic" and player.position in LUCK_POSITIONS:
+        # Proteção importante: um peão pode voltar para uma casa de
+        # sorte/revés após errar uma pergunta. Esse retorno é apenas uma
+        # penalidade de posição e NÃO deve disparar um novo sorteio.
+        if movement_source != "dice_roll":
+            return
+
         message, delta = random.choice(LUCK_EVENTS)
         old = player.credits
         player.credits = max(0, player.credits + delta)
@@ -206,10 +260,12 @@ async def handle_roll(ws: Any, data: dict[str, Any] | None = None) -> None:
     if roll < 1 or roll > 6:
         roll = random.randint(1, 6)
     max_pos = max_position_for_mode(room.game_mode)
+    if room.turn_start_position is None:
+        room.turn_start_position = player.position
     player.position = min(max_pos, player.position + roll)
     room.last_roll = roll
     await broadcast(room, f"{player.name} tirou {roll} no dado e avançou para {track_label(player.position, room.game_mode)}.")
-    await after_landing(room, player)
+    await after_landing(room, player, movement_source="dice_roll")
 
 
 async def handle_continue(ws: Any) -> None:
@@ -250,21 +306,44 @@ async def start_question(room: Room, player: Player) -> None:
 
 
 async def apply_wrong_answer(room: Room, player: Player, reason: str = "resposta incorreta") -> None:
-    if player.reset_used:
-        player.eliminated = True
-        player.credits = 0
-        event = f"{player.name} errou novamente e foi eliminado ({reason}). Saldo: {player.credits} créditos."
-    else:
-        player.reset_used = True
-        player.position = 0
-        player.credits = 0
-        event = f"{player.name} errou e voltou ao início, perdendo todos os créditos ({reason}). Saldo: {player.credits} créditos."
+    # Regra original do Green Impact: ao errar ou não responder, o jogador
+    # retorna à casa de onde partiu naquele turno, paga em créditos a
+    # quantidade de casas retornadas (sem saldo negativo) e perde a próxima
+    # rodada. Não existe eliminação por quantidade de erros.
+    landed_position = player.position
+    origin_position = room.turn_start_position
+    if origin_position is None:
+        # Fallback defensivo para partidas/estados antigos.
+        if room.game_mode == "classic":
+            origin_position = max(0, landed_position - 1)
+        else:
+            origin_position = max(0, landed_position - int(room.last_roll or 0))
+
+    origin_position = max(0, min(int(origin_position), landed_position))
+    returned_houses = max(0, landed_position - origin_position)
+    old_credits = player.credits
+    player.position = origin_position
+    player.credits = max(0, old_credits - returned_houses)
+    player.skip_turns = max(player.skip_turns, 1)
+
+    event = (
+        f"{player.name} errou ({reason}). Retornou de "
+        f"{track_label(landed_position, room.game_mode)} para "
+        f"{track_label(origin_position, room.game_mode)}, pagou {returned_houses} "
+        f"crédito{'s' if returned_houses != 1 else ''} de carbono "
+        f"({old_credits} → {player.credits}) e ficará uma rodada sem jogar."
+    )
 
     room.current_question = None
     room.deadline_ts = None
     room.turn_phase = "turn_result"
     room.pending_question_difficulty = None
     room.special_event = event
+    # O retorno por erro não é uma nova jogada de dado. Limpa o último dado
+    # para impedir que qualquer atualização tardia interprete o rollback como
+    # uma nova chegada e reaplique sorte/revés.
+    room.last_roll = None
+    room.turn_start_position = None
     await broadcast(room, event, reveal_answer=True)
 
 
@@ -415,7 +494,8 @@ async def handle_start(ws: Any) -> None:
     for p in room.players.values():
         p.position = 0
         p.credits = INITIAL_CREDITS
-        p.reset_used = False
+        p.skip_turns = 0
+        p.used_helps.clear()
         p.eliminated = False
         p.stopped = False
     await broadcast(room, "Partida iniciada.")
@@ -520,6 +600,16 @@ async def handle_help(ws: Any, data: dict[str, Any]) -> None:
     if not player or not room.current_question:
         await send(ws, {"type": "error", "message": "Não é sua vez."})
         return
+    help_type = str(data.get("help") or "")
+    if help_type not in VALID_HELP_TYPES:
+        await send(ws, {"type": "error", "message": "Ajuda inválida."})
+        return
+    if help_type in player.used_helps:
+        await send(ws, {
+            "type": "error",
+            "message": f"A carta '{HELP_TYPE_LABELS[help_type]}' já foi utilizada por você nesta partida.",
+        })
+        return
     if room.help_used_this_turn:
         await send(ws, {"type": "error", "message": "Você já usou uma ajuda nesta rodada."})
         return
@@ -527,9 +617,9 @@ async def handle_help(ws: Any, data: dict[str, Any]) -> None:
         await send(ws, {"type": "error", "message": "Créditos insuficientes para comprar ajuda."})
         return
 
-    help_type = str(data.get("help") or "")
     player.credits -= HELP_COST
     room.help_used_this_turn = True
+    player.used_helps.append(help_type)
 
     if help_type == "eliminate2":
         wrong = [i for i in range(len(room.current_question.options)) if i != room.current_question.answer_index]
@@ -547,7 +637,7 @@ async def handle_help(ws: Any, data: dict[str, Any]) -> None:
             # Todas as perguntas do banco atual possuem expert_tip. Este fallback
             # evita revelar a resposta caso um banco antigo seja carregado por engano.
             expert_tip = "Dica indisponível para esta pergunta."
-        await send(ws, {"type": "private_tip", "message": f"Dica do especialista: {expert_tip}"})
+        await send(ws, {"type": "private_tip", "question_id": room.current_question.id, "message": f"Dica do especialista: {expert_tip}"})
         await broadcast(room, f"{player.name} comprou ajuda do especialista. Custo: {HELP_COST} créditos. Saldo: {player.credits} créditos.")
     elif help_type == "skip":
         event = f"{player.name} usou Pular pergunta. Custo: {HELP_COST} créditos. Saldo atual: {player.credits} créditos."
@@ -557,10 +647,6 @@ async def handle_help(ws: Any, data: dict[str, Any]) -> None:
         room.pending_question_difficulty = None
         room.special_event = event
         await broadcast(room, event)
-    else:
-        player.credits += HELP_COST
-        room.help_used_this_turn = False
-        await send(ws, {"type": "error", "message": "Ajuda inválida."})
 
 
 async def handler(ws: Any, path: str | None = None) -> None:
