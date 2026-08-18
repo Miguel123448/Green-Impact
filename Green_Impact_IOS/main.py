@@ -363,6 +363,9 @@ class NetworkClient:
         self.thread: threading.Thread | None = None
         self.ws: Any = None
         self.connected = False
+        # Cada nova tentativa invalida as anteriores. Isso evita conexões
+        # concorrentes/zumbis ao trocar de sala ou tentar novamente no Android.
+        self.connection_generation = 0
 
     def _ensure_loop(self) -> None:
         if self.loop and not self.loop.is_closed():
@@ -380,26 +383,96 @@ class NetworkClient:
     def connect(self, url: str, name: str, room: str | None, game_mode: str = "dice_board", local_count: int | None = None, local_names: list[str] | None = None) -> None:
         self._ensure_loop()
         assert self.loop is not None
-        asyncio.run_coroutine_threadsafe(self._connect(url, name, room, game_mode, local_count, local_names or []), self.loop)
+        self.connection_generation += 1
+        generation = self.connection_generation
+        asyncio.run_coroutine_threadsafe(
+            self._connect(url, name, room, game_mode, local_count, local_names or [], generation),
+            self.loop,
+        )
 
-    async def _connect(self, url: str, name: str, room: str | None, game_mode: str = "dice_board", local_count: int | None = None, local_names: list[str] | None = None) -> None:
+    async def _close_socket(self, ws: Any, graceful: bool = True) -> None:
+        if ws is None:
+            return
+        if graceful:
+            try:
+                await ws.send(json.dumps({"type": "leave"}, ensure_ascii=False))
+                await asyncio.sleep(0.05)
+            except Exception:
+                pass
         try:
-            self.on_log("Conectando ao servidor selecionado...")
-            self.ws = await asyncio.wait_for(websockets.connect(url), timeout=8.0)
-            self.connected = True
-            if room:
-                await self.send({"type": "join", "room": room.upper(), "name": name})
-            elif local_count:
-                await self.send({"type": "create_local", "name": name, "count": local_count, "names": local_names or []})
-            else:
-                await self.send({"type": "create", "name": name, "game_mode": game_mode})
-            await self._listen()
-        except Exception as exc:
+            await ws.close()
+        except Exception:
+            pass
+        if self.ws is ws:
+            self.ws = None
             self.connected = False
-            self.on_message({"type": "error", "message": f"Não foi possível conectar: {exc}"})
 
-    async def _listen(self) -> None:
-        async for raw in self.ws:
+    async def _connect(
+        self, url: str, name: str, room: str | None, game_mode: str = "dice_board",
+        local_count: int | None = None, local_names: list[str] | None = None, generation: int = 0,
+    ) -> None:
+        ws: Any = None
+        established = False
+        try:
+            # Uma nova tentativa substitui completamente a conexão anterior.
+            # Na versão antiga era possível deixar um _listen antigo vivo e
+            # sobrescrever self.ws, situação especialmente problemática no Android.
+            old_ws = self.ws
+            if old_ws is not None:
+                await self._close_socket(old_ws, graceful=True)
+
+            self.on_log("Conectando ao servidor selecionado...")
+            connect_coro = websockets.connect(
+                url,
+                ping_interval=30,
+                ping_timeout=90,
+                close_timeout=10,
+                max_queue=64,
+            )
+            ws = await asyncio.wait_for(connect_coro, timeout=10.0)
+            if generation != self.connection_generation:
+                await self._close_socket(ws, graceful=False)
+                return
+
+            self.ws = ws
+            self.connected = True
+            established = True
+            if room:
+                await ws.send(json.dumps({"type": "join", "room": room.upper(), "name": name}, ensure_ascii=False))
+            elif local_count:
+                await ws.send(json.dumps({"type": "create_local", "name": name, "count": local_count, "names": local_names or []}, ensure_ascii=False))
+            else:
+                await ws.send(json.dumps({"type": "create", "name": name, "game_mode": game_mode}, ensure_ascii=False))
+            await self._listen(ws, generation)
+            # Um fechamento WebSocket com código normal encerra o ``async for``
+            # sem lançar exceção. Se não foi uma saída voluntária (a geração não
+            # mudou), ainda precisamos avisar a interface que a conexão caiu.
+            if generation == self.connection_generation:
+                self.on_message({
+                    "type": "connection_lost",
+                    "message": "A conexão com o servidor foi encerrada. O jogador foi removido da sala.",
+                })
+        except Exception as exc:
+            if generation == self.connection_generation:
+                self.connected = False
+                self.ws = None
+                if established:
+                    self.on_message({
+                        "type": "connection_lost",
+                        "message": "A conexão com o servidor foi encerrada. O jogador foi removido da sala.",
+                        "detail": str(exc),
+                    })
+                else:
+                    self.on_message({"type": "error", "message": f"Não foi possível conectar: {exc}"})
+        finally:
+            if generation == self.connection_generation and self.ws is ws:
+                self.ws = None
+                self.connected = False
+
+    async def _listen(self, ws: Any, generation: int) -> None:
+        async for raw in ws:
+            if generation != self.connection_generation:
+                break
             try:
                 payload = json.loads(raw)
             except Exception:
@@ -407,17 +480,29 @@ class NetworkClient:
             self.on_message(payload)
 
     async def send(self, payload: dict[str, Any]) -> None:
-        if self.ws:
-            await self.ws.send(json.dumps(payload, ensure_ascii=False))
+        ws = self.ws
+        if ws is None:
+            return
+        try:
+            await ws.send(json.dumps(payload, ensure_ascii=False))
+        except Exception:
+            # O listener reportará a queda e o servidor removerá a participação.
+            pass
 
     def send_nowait(self, payload: dict[str, Any]) -> None:
         if not self.loop:
             return
         asyncio.run_coroutine_threadsafe(self.send(payload), self.loop)
 
-    def close(self) -> None:
-        if self.loop and self.ws:
-            asyncio.run_coroutine_threadsafe(self.ws.close(), self.loop)
+    def close(self, graceful: bool = True) -> None:
+        # Invalida o listener atual para que um fechamento voluntário não seja
+        # exibido como erro de rede. Capturamos o socket antes de agendar a rotina
+        # para não correr o risco de fechar uma conexão nova.
+        self.connection_generation += 1
+        ws = self.ws
+        if self.loop and ws is not None:
+            asyncio.run_coroutine_threadsafe(self._close_socket(ws, graceful=graceful), self.loop)
+
 
 
 def pos_label(state, pos):
@@ -726,6 +811,25 @@ class GreenImpactAndroidApp(App):
                     elif self.private_tip_question_id and self.private_tip_question_id != current_qid:
                         self.private_tip_message = None
                         self.private_tip_question_id = None
+            elif t == "join_rejected":
+                self.connection_error = str(data.get("message") or "Não foi possível entrar na sala.")
+                self.messages.append("Erro: " + self.connection_error)
+                self.messages = self.messages[-6:]
+                self.network.close(graceful=False)
+                self.state = None
+                self.you = None
+                self.room_code = None
+                self.current_screen = "home"
+                self.show_home_screen()
+            elif t == "connection_lost":
+                self.connection_error = str(data.get("message") or "A conexão com o servidor foi encerrada.")
+                self.messages.append("Erro: " + self.connection_error)
+                self.messages = self.messages[-6:]
+                self.state = None
+                self.you = None
+                self.room_code = None
+                self.current_screen = "home"
+                self.show_home_screen()
             elif t == "error":
                 self.connection_error = str(data.get("message") or "Erro desconhecido")
                 self.log("Erro: " + self.connection_error)
@@ -1190,7 +1294,10 @@ class GreenImpactAndroidApp(App):
 
                 async def runner() -> None:
                     local_server.QUESTIONS = local_server.load_questions()
-                    async with websockets.serve(local_server.handler, "0.0.0.0", port):
+                    async with websockets.serve(
+                        local_server.handler, "0.0.0.0", port,
+                        ping_interval=30, ping_timeout=90, close_timeout=10, max_queue=64,
+                    ):
                         await asyncio.Future()
 
                 loop = asyncio.new_event_loop()
@@ -1258,9 +1365,13 @@ class GreenImpactAndroidApp(App):
         self.current_screen = "lobby"
         self.clear_panel()
         self.add(self.title_label(f"Sala {self.room_code or '---'}", 30))
+        players = self.state.get("players", []) if self.state else []
+        max_players = int((self.state or {}).get("max_players") or 4)
+        is_full = len(players) >= max_players
+        occupancy = f"Jogadores: [b]{len(players)}/{max_players}[/b]" + ("  —  [b]SALA CHEIA[/b]" if is_full else "")
+        self.add(self.label(occupancy, 15, False, RED if is_full else DARK, min_height=30))
         self.add(self.label("Escolha sua cor. Depois o criador da sala inicia a partida.", 15, False, TEXT))
 
-        players = self.state.get("players", []) if self.state else []
         chosen = {p.get("color") for p in players if p.get("color")}
         me = self.me()
         grid = self.button_grid(cols=2, height=112)

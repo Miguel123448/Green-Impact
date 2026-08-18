@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, asdict
 from typing import Any
 
+MAX_PLAYERS = 4
 COLORS = ["green", "yellow", "red", "blue"]
 COLOR_LABELS = {
     "green": "Verde",
@@ -117,4 +118,6 @@ class Room:
             "last_roll": self.last_roll,
             "special_event": self.special_event,
             "turn_start_position": self.turn_start_position,
+            "max_players": MAX_PLAYERS,
+            "is_full": len(self.players) >= MAX_PLAYERS,
         }

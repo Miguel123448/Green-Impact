@@ -250,7 +250,7 @@ class GreenImpactClient:
 
         try:
             self.messages.append("Conectando ao servidor selecionado...")
-            self.ws = await websockets.connect(self.server_url)
+            self.ws = await websockets.connect(self.server_url, ping_interval=30, ping_timeout=90, close_timeout=10, max_queue=64)
             asyncio.create_task(self.listen())
             self.in_menu = False
             if self.join_room:
@@ -278,7 +278,10 @@ class GreenImpactClient:
 
                 async def runner() -> None:
                     local_server.QUESTIONS = local_server.load_questions()
-                    async with websockets.serve(local_server.handler, "0.0.0.0", port):
+                    async with websockets.serve(
+                        local_server.handler, "0.0.0.0", port,
+                        ping_interval=30, ping_timeout=90, close_timeout=10, max_queue=64,
+                    ):
                         await asyncio.Future()
 
                 loop = asyncio.new_event_loop()
@@ -312,6 +315,11 @@ class GreenImpactClient:
     async def back_to_menu(self) -> None:
         if self.ws:
             try:
+                await self.ws.send(json.dumps({"type": "leave"}, ensure_ascii=False))
+                await asyncio.sleep(0.05)
+            except Exception:
+                pass
+            try:
                 await self.ws.close()
             except Exception:
                 pass
@@ -338,6 +346,19 @@ class GreenImpactClient:
                     self.state = data.get("room")
                     if self.state:
                         self.room_code = self.state.get("code") or self.room_code
+                elif msg_type == "join_rejected":
+                    message = str(data.get("message") or "Não foi possível entrar na sala.")
+                    self.connection_error = message
+                    self.messages.append("Erro: " + message)
+                    self.state = None
+                    self.you = None
+                    self.room_code = None
+                    self.in_menu = True
+                    try:
+                        await self.ws.close()
+                    except Exception:
+                        pass
+                    break
                 elif msg_type == "error":
                     message = str(data.get("message"))
                     self.connection_error = message

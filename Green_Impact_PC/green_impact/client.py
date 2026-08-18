@@ -263,6 +263,8 @@ class GreenImpactClient:
         self.timeout_sent_for_question: str | None = None
         self.connection_error: str | None = None
         self.connecting = False
+        # Distingue saída voluntária de queda real da conexão.
+        self.intentional_disconnect = False
         self.local_server_thread: threading.Thread | None = None
         self.local_server_error: str | None = None
         self.local_server_port = 8765
@@ -696,9 +698,26 @@ class GreenImpactClient:
         self.private_tip_question_id = None
 
         try:
+            self.intentional_disconnect = False
+            # Fecha qualquer conexão anterior antes de criar outra. Isso evita
+            # sockets órfãos quando o jogador tenta entrar novamente após erro.
+            if self.ws is not None:
+                old_ws = self.ws
+                self.ws = None
+                try:
+                    await old_ws.close()
+                except Exception:
+                    pass
             self.messages.append("Conectando ao servidor selecionado...")
-            self.ws = await websockets.connect(self.server_url)
-            asyncio.create_task(self.listen())
+            ws = await websockets.connect(
+                self.server_url,
+                ping_interval=30,
+                ping_timeout=90,
+                close_timeout=10,
+                max_queue=64,
+            )
+            self.ws = ws
+            asyncio.create_task(self.listen(ws))
             self.in_menu = False
             self.ui_mode = "game"
             if self.join_room:
@@ -728,7 +747,10 @@ class GreenImpactClient:
 
                 async def runner() -> None:
                     local_server.QUESTIONS = local_server.load_questions()
-                    async with websockets.serve(local_server.handler, "0.0.0.0", port):
+                    async with websockets.serve(
+                        local_server.handler, "0.0.0.0", port,
+                        ping_interval=30, ping_timeout=90, close_timeout=10, max_queue=64,
+                    ):
                         await asyncio.Future()
 
                 loop = asyncio.new_event_loop()
@@ -760,9 +782,18 @@ class GreenImpactClient:
         await self.connect_to(f"ws://{LOCALHOST}:{port}", name, None)
 
     async def back_to_menu(self) -> None:
+        self.intentional_disconnect = True
         if self.ws:
+            ws = self.ws
             try:
-                await self.ws.close()
+                # Libera a vaga no servidor imediatamente; o finally do servidor
+                # continua sendo o fallback para quedas abruptas.
+                await ws.send(json.dumps({"type": "leave"}, ensure_ascii=False))
+                await asyncio.sleep(0.05)
+            except Exception:
+                pass
+            try:
+                await ws.close()
             except Exception:
                 pass
         self.ws = None
@@ -798,9 +829,12 @@ class GreenImpactClient:
             self.ui_mode = "home"
         self.rules_return_context = None
 
-    async def listen(self) -> None:
+    async def listen(self, ws: Any | None = None) -> None:
+        ws = ws or self.ws
+        if ws is None:
+            return
         try:
-            async for raw in self.ws:
+            async for raw in ws:
                 data = json.loads(raw)
                 msg_type = data.get("type")
                 if msg_type in {"created", "joined"}:
@@ -816,13 +850,25 @@ class GreenImpactClient:
                         self.room_code = self.state.get("code") or self.room_code
                         current_question = self.state.get("current_question") or {}
                         current_qid = str(current_question.get("id") or "")
-                        # A dica do especialista pertence somente à pergunta em que
-                        # foi comprada. Ao encerrar/trocar a questão, removemos o
-                        # painel para que a dica antiga nunca apareça na próxima.
                         if self.private_tip_question_id and current_qid != self.private_tip_question_id:
                             self.private_tip = None
                             self.private_tip_question_id = None
                             self.expert_tip_expanded = False
+                elif msg_type == "join_rejected":
+                    message = str(data.get("message") or "Não foi possível entrar na sala.")
+                    self.connection_error = message
+                    self.messages.append("Erro: " + message)
+                    self.state = None
+                    self.you = None
+                    self.room_code = None
+                    self.in_menu = True
+                    self.ui_mode = "connection"
+                    self.intentional_disconnect = True
+                    try:
+                        await ws.close()
+                    except Exception:
+                        pass
+                    break
                 elif msg_type == "error":
                     message = str(data.get("message"))
                     self.connection_error = message
@@ -833,14 +879,32 @@ class GreenImpactClient:
                     self.private_tip_question_id = str(
                         data.get("question_id") or current_question.get("id") or ""
                     ) or None
-                    # Sempre abre automaticamente a dica recém-comprada. O painel
-                    # é desenhado acima dos dois HUDs de partida, portanto funciona
-                    # tanto no tabuleiro clássico quanto no tabuleiro com dado.
                     self.expert_tip_expanded = True
                 elif msg_type == "pong":
                     pass
+            # Fechamentos WebSocket com código 1000 encerram o async for sem
+            # exceção. Se não foi uma saída voluntária, ainda é uma perda da
+            # sessão e deve ficar visível para o jogador.
+            if not self.intentional_disconnect and self.ws is ws:
+                self.connection_error = "Conexão com o servidor foi encerrada. Entre novamente em outra sala ou crie uma nova partida."
+                self.messages.append("Conexão encerrada pelo servidor.")
+                self.state = None
+                self.you = None
+                self.room_code = None
+                self.in_menu = True
+                self.ui_mode = "connection"
         except Exception as exc:
-            self.messages.append(f"Conexão encerrada: {exc}")
+            if not self.intentional_disconnect and self.ws is ws:
+                self.connection_error = "Conexão com o servidor foi encerrada. Entre novamente em outra sala ou crie uma nova partida."
+                self.messages.append(f"Conexão encerrada: {exc}")
+                self.state = None
+                self.you = None
+                self.room_code = None
+                self.in_menu = True
+                self.ui_mode = "connection"
+        finally:
+            if self.ws is ws:
+                self.ws = None
 
     async def send(self, payload: dict[str, Any]) -> None:
         if self.ws:
@@ -1845,12 +1909,16 @@ class GreenImpactClient:
             self.draw_text("GREEN IMPACT", (x, y), self.font_title, DARK)
             y += 65
 
+        players = self.state.get("players", []) if self.state else []
+        max_players = int((self.state or {}).get("max_players") or 4)
+        is_full = len(players) >= max_players
         self.draw_text(f"Código da sala: {self.room_code or 'conectando...'}", (x, y), self.font_big, DARK)
+        occupancy = f"{len(players)}/{max_players} jogadores" + (" — SALA CHEIA" if is_full else "")
+        self.draw_text(occupancy, (right.right - 255, y + 10), self.font_small, RED if is_full else DARK)
         y += 48
         self.draw_wrapped("Compartilhe este código com os outros jogadores. Escolha uma cor; quando todos escolherem, o criador inicia a partida.", x, y, 70, self.font_small)
         y += 56
 
-        players = self.state.get("players", []) if self.state else []
         chosen = {p.get("color") for p in players if p.get("color")}
         me = self.me()
         for i, color in enumerate(COLOR_ORDER):

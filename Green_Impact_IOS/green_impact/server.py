@@ -13,7 +13,7 @@ from typing import Any
 
 import websockets
 
-from .common import COLORS, COLOR_LABELS, Player, Question, Room
+from .common import MAX_PLAYERS, COLORS, COLOR_LABELS, Player, Question, Room
 from .rules import (
     CREDITS_BY_DIFFICULTY,
     HELP_COST,
@@ -85,14 +85,110 @@ async def broadcast(room: Room, event: str | None = None, reveal_answer: bool = 
         "room": room.public(reveal_answer=reveal_answer),
     }
     sockets = list(SOCKETS_BY_ROOM.get(room.code, set()))
+    failed: list[Any] = []
     for ws in sockets:
         if getattr(ws, "closed", False):
+            failed.append(ws)
             continue
         payload["you"] = PLAYER_BY_SOCKET.get(ws)
         try:
             await send(ws, payload)
         except Exception:
-            pass
+            # Uma falha de envio significa que a conexão já não é utilizável.
+            # A limpeza abaixo remove o socket e o jogador, evitando vagas
+            # "fantasmas" que deixavam a sala cheia após uma desconexão.
+            failed.append(ws)
+
+    for dead_ws in failed:
+        if dead_ws in ROOM_BY_SOCKET or dead_ws in PLAYER_BY_SOCKET:
+            await remove_player_from_room(dead_ws, reason="perdeu a conexão", announce=True)
+
+
+async def reject_join(ws: Any, reason: str, message: str) -> None:
+    """Recusa uma entrada sem deixar um WebSocket órfão no servidor."""
+    await send(ws, {"type": "join_rejected", "reason": reason, "message": message})
+
+
+async def remove_player_from_room(
+    ws: Any, *, reason: str = "desconectou", announce: bool = True
+) -> None:
+    """Remove definitivamente da sala o jogador associado a ``ws``.
+
+    A implementação antiga apenas marcava ``connected=False``. Isso mantinha o
+    jogador ocupando uma das quatro vagas e impedia uma nova entrada. Também
+    deixava turnos presos quando o jogador da vez desaparecia. Agora a saída é
+    definitiva para aquela participação. Se a partida ainda não começou, a
+    pessoa pode entrar novamente como um novo jogador, desde que haja vaga.
+    """
+    code = ROOM_BY_SOCKET.pop(ws, None)
+    player_id = PLAYER_BY_SOCKET.pop(ws, None)
+    if code and code in SOCKETS_BY_ROOM:
+        SOCKETS_BY_ROOM[code].discard(ws)
+
+    if not code or not player_id:
+        return
+    room = ROOMS.get(code)
+    if not room:
+        return
+
+    # Multijogador local usa um único socket para todos os jogadores. Ao fechar
+    # esse socket, a sala inteira deixa de existir.
+    if room.local_multiplayer:
+        ROOMS.pop(code, None)
+        SOCKETS_BY_ROOM.pop(code, None)
+        return
+
+    ordered_ids = list(room.players.keys())
+    if player_id not in room.players:
+        return
+    removed_index = ordered_ids.index(player_id)
+    player = room.players.pop(player_id)
+    was_current = room.current_player_id == player_id
+
+    # Mantém o índice apontando para o mesmo jogador lógico depois que a lista
+    # diminui. Se quem saiu era o atual, next_turn() avançará para o seguinte.
+    if removed_index <= room.current_turn_index:
+        room.current_turn_index -= 1
+    if room.players:
+        room.current_turn_index = min(room.current_turn_index, len(room.players) - 1)
+    else:
+        room.current_turn_index = -1
+
+    # Sala vazia: remove tudo imediatamente para não acumular salas mortas.
+    if not room.players:
+        ROOMS.pop(code, None)
+        SOCKETS_BY_ROOM.pop(code, None)
+        return
+
+    host_changed = False
+    if room.host_id == player_id:
+        new_host = next(iter(room.players.values()))
+        room.host_id = new_host.id
+        for p in room.players.values():
+            p.is_host = p.id == new_host.id
+        host_changed = True
+
+    if was_current and room.status == "playing":
+        # Nunca deixa a partida aguardando resposta/ação de um jogador que não
+        # existe mais. O turno dele é cancelado e seguimos para o próximo.
+        room.current_question = None
+        room.deadline_ts = None
+        room.current_player_id = None
+        room.turn_phase = "idle"
+        room.pending_question_difficulty = None
+        room.help_used_this_turn = False
+        room.special_event = None
+        room.last_roll = None
+        room.turn_start_position = None
+        if announce:
+            suffix = " O criador da sala foi transferido para outro jogador." if host_changed else ""
+            await broadcast(room, f"{player.name} {reason} e foi removido da partida.{suffix}")
+        await next_turn(room)
+        return
+
+    if announce:
+        suffix = " O criador da sala agora é outro jogador." if host_changed else ""
+        await broadcast(room, f"{player.name} {reason} e foi removido da sala.{suffix}")
 
 
 def active_player_ids(room: Room) -> list[str]:
@@ -430,13 +526,19 @@ async def handle_join(ws: Any, data: dict[str, Any]) -> None:
     name = str(data.get("name") or "Jogador").strip()[:20] or "Jogador"
     room = ROOMS.get(code)
     if not room:
-        await send(ws, {"type": "error", "message": "Sala não encontrada."})
+        await reject_join(ws, "room_not_found", "Sala não encontrada. Confira o código e tente novamente.")
+        return
+    # A lotação é verificada antes do estado da partida para que uma sala com
+    # quatro pessoas sempre responda claramente que está cheia.
+    if len(room.players) >= MAX_PLAYERS:
+        await reject_join(ws, "room_full", f"Sala cheia. Limite máximo de {MAX_PLAYERS} jogadores.")
         return
     if room.status != "waiting":
-        await send(ws, {"type": "error", "message": "A partida já começou."})
-        return
-    if len(room.players) >= 4:
-        await send(ws, {"type": "error", "message": "A sala já tem 4 jogadores."})
+        await reject_join(
+            ws,
+            "game_started",
+            "A partida já começou. Jogadores que saíram não podem retornar nesta partida.",
+        )
         return
 
     player_id = str(uuid.uuid4())
@@ -446,6 +548,15 @@ async def handle_join(ws: Any, data: dict[str, Any]) -> None:
     PLAYER_BY_SOCKET[ws] = player_id
     await send(ws, {"type": "joined", "room_code": code, "player_id": player_id})
     await broadcast(room, f"{name} entrou na sala.")
+
+
+async def handle_leave(ws: Any) -> None:
+    """Saída voluntária: libera a vaga antes mesmo do fechamento do socket."""
+    await remove_player_from_room(ws, reason="saiu", announce=True)
+    try:
+        await ws.close(code=1000, reason="Jogador saiu da sala")
+    except Exception:
+        pass
 
 
 async def handle_choose_color(ws: Any, data: dict[str, Any]) -> None:
@@ -657,45 +768,57 @@ async def handler(ws: Any, path: str | None = None) -> None:
             except json.JSONDecodeError:
                 await send(ws, {"type": "error", "message": "Mensagem inválida."})
                 continue
+
             msg_type = data.get("type")
-            if msg_type == "create":
-                await handle_create(ws, data)
-            elif msg_type == "create_local":
-                await handle_create_local(ws, data)
-            elif msg_type == "join":
-                await handle_join(ws, data)
-            elif msg_type == "choose_color":
-                await handle_choose_color(ws, data)
-            elif msg_type == "start":
-                await handle_start(ws)
-            elif msg_type == "roll":
-                await handle_roll(ws, data)
-            elif msg_type == "continue":
-                await handle_continue(ws)
-            elif msg_type == "begin_question":
-                await handle_begin_question(ws)
-            elif msg_type == "answer":
-                await handle_answer(ws, data)
-            elif msg_type == "stop":
-                await handle_stop(ws)
-            elif msg_type == "help":
-                await handle_help(ws, data)
-            elif msg_type == "timeout":
-                await handle_timeout(ws)
-            elif msg_type == "ping":
-                await send(ws, {"type": "pong"})
-            else:
-                await send(ws, {"type": "error", "message": f"Tipo de mensagem desconhecido: {msg_type}"})
+            try:
+                if msg_type == "create":
+                    await handle_create(ws, data)
+                elif msg_type == "create_local":
+                    await handle_create_local(ws, data)
+                elif msg_type == "join":
+                    await handle_join(ws, data)
+                elif msg_type == "leave":
+                    await handle_leave(ws)
+                    break
+                elif msg_type == "choose_color":
+                    await handle_choose_color(ws, data)
+                elif msg_type == "start":
+                    await handle_start(ws)
+                elif msg_type == "roll":
+                    await handle_roll(ws, data)
+                elif msg_type == "continue":
+                    await handle_continue(ws)
+                elif msg_type == "begin_question":
+                    await handle_begin_question(ws)
+                elif msg_type == "answer":
+                    await handle_answer(ws, data)
+                elif msg_type == "stop":
+                    await handle_stop(ws)
+                elif msg_type == "help":
+                    await handle_help(ws, data)
+                elif msg_type == "timeout":
+                    await handle_timeout(ws)
+                elif msg_type == "ping":
+                    await send(ws, {"type": "pong"})
+                else:
+                    await send(ws, {"type": "error", "message": f"Tipo de mensagem desconhecido: {msg_type}"})
+            except Exception as exc:
+                # Um comando inválido ou uma corrida de estado não deve derrubar
+                # o WebSocket inteiro. Registramos o erro e mantemos a sessão
+                # viva; se a conexão em si tiver caído, o loop/finally fará a
+                # limpeza normal.
+                print(f"Erro ao processar mensagem {msg_type!r}: {exc}")
+                try:
+                    await send(ws, {
+                        "type": "error",
+                        "message": "Não foi possível processar essa ação. O servidor manteve sua conexão ativa.",
+                    })
+                except Exception:
+                    break
     finally:
-        code = ROOM_BY_SOCKET.pop(ws, None)
-        player_id = PLAYER_BY_SOCKET.pop(ws, None)
-        if code and code in SOCKETS_BY_ROOM:
-            SOCKETS_BY_ROOM[code].discard(ws)
-        if code and player_id and code in ROOMS:
-            room = ROOMS[code]
-            if player_id in room.players:
-                room.players[player_id].connected = False
-                await broadcast(room, f"{room.players[player_id].name} desconectou.")
+        # Desconexão real, fechamento do aplicativo ou perda de rede: o jogador
+        # é retirado definitivamente, liberando a vaga e evitando turnos presos.
+        await remove_player_from_room(ws, reason="desconectou", announce=True)
 
 
 async def main() -> None:
@@ -706,7 +829,15 @@ async def main() -> None:
     args = parser.parse_args()
 
     QUESTIONS = load_questions()
-    async with websockets.serve(handler, args.host, args.port):
+    async with websockets.serve(
+        handler,
+        args.host,
+        args.port,
+        ping_interval=30,
+        ping_timeout=90,
+        close_timeout=10,
+        max_queue=64,
+    ):
         print(f"Servidor Green Impact rodando em ws://{args.host}:{args.port}")
         print("Pressione Ctrl+C para encerrar.")
         await asyncio.Future()
