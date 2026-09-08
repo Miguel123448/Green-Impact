@@ -180,6 +180,8 @@ async def remove_player_from_room(
         room.special_event = None
         room.last_roll = None
         room.turn_start_position = None
+        room.answer_feedback = None
+        room.pending_end_reason = None
         if announce:
             suffix = " O criador da sala foi transferido para outro jogador." if host_changed else ""
             await broadcast(room, f"{player.name} {reason} e foi removido da partida.{suffix}")
@@ -220,6 +222,8 @@ async def end_game(room: Room, reason: str) -> None:
     room.turn_phase = "idle"
     room.pending_question_difficulty = None
     room.last_roll = None
+    room.answer_feedback = None
+    room.pending_end_reason = None
     room.ranking = make_ranking(room)
     await broadcast(room, f"Fim de jogo: {reason}")
 
@@ -285,6 +289,8 @@ async def next_turn(room: Room) -> None:
     room.special_event = None
     room.last_roll = None
     room.turn_start_position = player.position
+    room.answer_feedback = None
+    room.pending_end_reason = None
 
     if room.game_mode == "classic":
         if player.position < max_position_for_mode(room.game_mode):
@@ -371,11 +377,68 @@ async def handle_continue(ws: Any) -> None:
         return
     room = ROOMS[code]
     player = get_current_player_for_ws(room, player_id)
-    if not player or room.turn_phase not in {"luck_result", "turn_result"}:
+    if not player:
+        return
+
+    # Depois que uma alternativa é escolhida, mostramos primeiro o gabarito.
+    # Só após o jogador tocar em Continuar a interface avança para a tela de
+    # consequência (créditos/retorno de casas) ou para o fim da partida.
+    if room.turn_phase == "answer_feedback" and room.answer_feedback and room.current_question:
+        was_correct = bool(room.answer_feedback.get("is_correct"))
+        room.answer_feedback = None
+        room.deadline_ts = None
+        room.pending_question_difficulty = None
+
+        if was_correct:
+            reward = CREDITS_BY_DIFFICULTY[room.current_question.difficulty]
+            player.credits += reward
+            event = (
+                f"{player.name} acertou. Ganhou {reward} créditos de carbono. "
+                f"Saldo atual: {player.credits} créditos."
+            )
+            room.current_question = None
+            room.turn_phase = "turn_result"
+            room.special_event = event
+            room.turn_start_position = None
+            if player.position >= max_position_for_mode(room.game_mode):
+                room.pending_end_reason = f"{player.name} completou o percurso com {player.credits} créditos"
+            await broadcast(room, event)
+            return
+
+        # A penalidade de erro é aplicada somente depois que o jogador conferiu
+        # o gabarito. Isso impede que o peão/placar mudem antes da tela educativa
+        # com as alternativas corretas e incorretas.
+        await apply_wrong_answer(room, player)
+        return
+
+    if room.turn_phase not in {"luck_result", "turn_result"}:
+        return
+    if room.turn_phase == "turn_result" and room.pending_end_reason:
+        reason = room.pending_end_reason
+        room.pending_end_reason = None
+        await end_game(room, reason)
         return
     room.turn_phase = "idle"
     room.special_event = None
     await next_turn(room)
+
+
+def choose_unused_question(room: Room, difficulty: str) -> Question:
+    """Sorteia sem repetir enquanto houver questões inéditas no nível.
+
+    Quando todas as questões daquele nível já tiverem aparecido na partida,
+    inicia-se um novo ciclo. Assim, a repetição só é possível depois de esgotar
+    o conjunto disponível daquele nível.
+    """
+    bank = QUESTIONS[difficulty]
+    used = set(room.used_question_ids.setdefault(difficulty, []))
+    available = [question for question in bank if question.id not in used]
+    if not available:
+        room.used_question_ids[difficulty] = []
+        available = list(bank)
+    question = random.choice(available)
+    room.used_question_ids[difficulty].append(question.id)
+    return question
 
 
 async def start_question(room: Room, player: Player) -> None:
@@ -385,7 +448,7 @@ async def start_question(room: Room, player: Player) -> None:
         return
 
     difficulty = room.pending_question_difficulty or difficulty_for_position(player.position, room.game_mode)
-    question = random.choice(QUESTIONS[difficulty])
+    question = choose_unused_question(room, difficulty)
     room.current_question = Question(
         id=question.id,
         difficulty=question.difficulty,
@@ -397,11 +460,17 @@ async def start_question(room: Room, player: Player) -> None:
     )
     room.deadline_ts = now() + QUESTION_TIME_LIMIT
     room.help_used_this_turn = False
+    room.answer_feedback = None
     room.turn_phase = "question"
     await broadcast(room, f"Pergunta iniciada para {player.name}. Tempo: {QUESTION_TIME_LIMIT}s.")
 
 
-async def apply_wrong_answer(room: Room, player: Player, reason: str = "resposta incorreta") -> None:
+async def apply_wrong_answer(
+    room: Room,
+    player: Player,
+    reason: str = "resposta incorreta",
+    selected_index: int | None = None,
+) -> None:
     # Regra original do Green Impact: ao errar ou não responder, o jogador
     # retorna à casa de onde partiu naquele turno, paga em créditos a
     # quantidade de casas retornadas (sem saldo negativo) e perde a próxima
@@ -430,9 +499,7 @@ async def apply_wrong_answer(room: Room, player: Player, reason: str = "resposta
         f"({old_credits} → {player.credits}) e ficará uma rodada sem jogar."
     )
 
-    room.current_question = None
     room.deadline_ts = None
-    room.turn_phase = "turn_result"
     room.pending_question_difficulty = None
     room.special_event = event
     # O retorno por erro não é uma nova jogada de dado. Limpa o último dado
@@ -440,6 +507,27 @@ async def apply_wrong_answer(room: Room, player: Player, reason: str = "resposta
     # uma nova chegada e reaplique sorte/revés.
     room.last_roll = None
     room.turn_start_position = None
+
+    if selected_index is not None and room.current_question is not None:
+        # Resposta efetivamente escolhida: mantém a pergunta apenas durante a
+        # tela de gabarito. O jogador vê a correta em verde e todas as
+        # incorretas em vermelho antes da consequência da rodada.
+        room.answer_feedback = {
+            "player_id": player.id,
+            "selected_index": selected_index,
+            "correct_index": room.current_question.answer_index,
+            "is_correct": False,
+            "message": "Resposta incorreta.",
+        }
+        room.turn_phase = "answer_feedback"
+        await broadcast(room, event, reveal_answer=True)
+        return
+
+    # Tempo esgotado continua indo diretamente para a consequência, pois não
+    # houve uma alternativa selecionada pelo jogador.
+    room.current_question = None
+    room.answer_feedback = None
+    room.turn_phase = "turn_result"
     await broadcast(room, event, reveal_answer=True)
 
 
@@ -602,6 +690,9 @@ async def handle_start(ws: Any) -> None:
         return
     room.status = "playing"
     room.current_turn_index = -1
+    room.answer_feedback = None
+    room.pending_end_reason = None
+    room.used_question_ids = {"easy": [], "medium": [], "hard": []}
     for p in room.players.values():
         p.position = 0
         p.credits = INITIAL_CREDITS
@@ -622,25 +713,29 @@ async def handle_answer(ws: Any, data: dict[str, Any]) -> None:
     if await expire_if_needed(room):
         return
     player = get_current_player_for_ws(room, player_id)
-    if not player or not room.current_question:
-        await send(ws, {"type": "error", "message": "Não é sua vez."})
+    if not player or not room.current_question or room.turn_phase != "question":
+        await send(ws, {"type": "error", "message": "Não é sua vez ou a pergunta já foi respondida."})
         return
+
     answer_index = int(data.get("answer_index", -1))
-    if answer_index == room.current_question.answer_index:
-        reward = CREDITS_BY_DIFFICULTY[room.current_question.difficulty]
-        player.credits += reward
-        event = f"{player.name} acertou. Ganhou {reward} créditos de carbono. Saldo atual: {player.credits} créditos."
-        room.current_question = None
-        room.deadline_ts = None
-        room.turn_phase = "turn_result"
-        room.pending_question_difficulty = None
-        room.special_event = event
-        await broadcast(room, event, reveal_answer=True)
-        if player.position >= max_position_for_mode(room.game_mode):
-            await end_game(room, f"{player.name} completou o percurso com {player.credits} créditos")
-            return
-    else:
-        await apply_wrong_answer(room, player)
+    if not 0 <= answer_index < len(room.current_question.options):
+        await send(ws, {"type": "error", "message": "Alternativa inválida."})
+        return
+
+    is_correct = answer_index == room.current_question.answer_index
+    room.deadline_ts = None
+    room.pending_question_difficulty = None
+    room.answer_feedback = {
+        "player_id": player.id,
+        "selected_index": answer_index,
+        "correct_index": room.current_question.answer_index,
+        "is_correct": is_correct,
+        "message": "Resposta correta!" if is_correct else "Resposta incorreta.",
+    }
+    room.turn_phase = "answer_feedback"
+    # Nenhuma consequência é aplicada ainda. Primeiro todos veem o gabarito;
+    # apenas o jogador da vez pode avançar para a tela de resultado da rodada.
+    await broadcast(room, reveal_answer=True)
 
 
 async def handle_stop(ws: Any) -> None:
@@ -652,8 +747,8 @@ async def handle_stop(ws: Any) -> None:
     if await expire_if_needed(room):
         return
     player = get_current_player_for_ws(room, player_id)
-    if not player or not room.current_question:
-        await send(ws, {"type": "error", "message": "Inicie a pergunta antes de decidir parar."})
+    if not player or not room.current_question or room.turn_phase != "question":
+        await send(ws, {"type": "error", "message": "Inicie uma pergunta ativa antes de decidir parar."})
         return
     player.stopped = True
     old_credits = player.credits
@@ -667,6 +762,7 @@ async def handle_stop(ws: Any) -> None:
     )
     room.current_question = None
     room.deadline_ts = None
+    room.answer_feedback = None
     room.turn_phase = "turn_result"
     room.pending_question_difficulty = None
     room.special_event = event
@@ -708,8 +804,8 @@ async def handle_help(ws: Any, data: dict[str, Any]) -> None:
     if await expire_if_needed(room):
         return
     player = get_current_player_for_ws(room, player_id)
-    if not player or not room.current_question:
-        await send(ws, {"type": "error", "message": "Não é sua vez."})
+    if not player or not room.current_question or room.turn_phase != "question":
+        await send(ws, {"type": "error", "message": "Não é sua vez ou a pergunta não está mais ativa."})
         return
     help_type = str(data.get("help") or "")
     if help_type not in VALID_HELP_TYPES:
@@ -754,6 +850,7 @@ async def handle_help(ws: Any, data: dict[str, Any]) -> None:
         event = f"{player.name} usou Pular pergunta. Custo: {HELP_COST} créditos. Saldo atual: {player.credits} créditos."
         room.current_question = None
         room.deadline_ts = None
+        room.answer_feedback = None
         room.turn_phase = "turn_result"
         room.pending_question_difficulty = None
         room.special_event = event

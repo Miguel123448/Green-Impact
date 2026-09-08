@@ -756,7 +756,18 @@ class GreenImpactAndroidApp(App):
             bg_color=bg, down_color=down, border_color=border, text_color=fg,
             font_size=dp(15), bold=True, halign="center", valign="middle",
         )
-        btn.bind(width=lambda b, *_: setattr(b, "text_size", (max(b.width - dp(18), dp(40)), None)))
+        # O botão passa a crescer verticalmente quando o texto quebra em mais
+        # linhas. Isso evita que alternativas longas ultrapassem a moldura em
+        # telas estreitas, sem aumentar desnecessariamente os botões curtos.
+        min_button_height = dp(height)
+
+        def sync_button_text_and_height(button: Button, *_args: Any) -> None:
+            button.text_size = (max(button.width - dp(20), dp(40)), None)
+            texture_h = button.texture_size[1] if button.texture_size else 0
+            button.height = max(min_button_height, texture_h + dp(22))
+
+        btn.bind(width=sync_button_text_and_height, texture_size=sync_button_text_and_height)
+        Clock.schedule_once(lambda *_: sync_button_text_and_height(btn), 0)
         btn.bind(on_release=lambda *_: callback())
         return btn
 
@@ -797,12 +808,17 @@ class GreenImpactAndroidApp(App):
                 if data.get("server_ts"):
                     self.server_delta = float(data["server_ts"]) - time.time()
                 previous_had_question = bool((self.state or {}).get("current_question"))
+                previous_phase = (self.state or {}).get("turn_phase")
                 self.state = data.get("room")
                 if self.state:
                     self.current_screen = "game"
                     self.room_code = self.state.get("code") or self.room_code
                     current_q = self.state.get("current_question") or {}
-                    if current_q and not previous_had_question:
+                    current_phase = self.state.get("turn_phase")
+                    if current_q and (
+                        not previous_had_question
+                        or (current_phase == "answer_feedback" and previous_phase != "answer_feedback")
+                    ):
                         self.scroll_to_question_on_render = True
                     current_qid = str(current_q.get("id") or "") if current_q else None
                     if not current_qid:
@@ -856,7 +872,7 @@ class GreenImpactAndroidApp(App):
         if not self.state or self.state.get("status") != "playing":
             return
         q = self.state.get("current_question")
-        if not q:
+        if not q or self.state.get("turn_phase") != "question":
             self.timer_label = None
             return
 
@@ -1452,7 +1468,10 @@ class GreenImpactAndroidApp(App):
             self.finalize_card(turn)
             self.add(turn)
 
-        if q:
+        phase = self.state.get("turn_phase")
+        if q and phase == "answer_feedback" and self.state.get("answer_feedback"):
+            self.render_answer_feedback_area(q, cp, my_turn)
+        elif q:
             self.render_question_area(q, my_turn)
         else:
             self.render_pause_area(cp, my_turn)
@@ -1476,6 +1495,106 @@ class GreenImpactAndroidApp(App):
         elif scroll is not None:
             scroll.scroll_y = 1
         self.scroll_to_question_on_render = False
+
+    def render_answer_feedback_area(
+        self,
+        q: dict[str, Any],
+        cp: dict[str, Any] | None,
+        my_turn: bool,
+    ) -> None:
+        """Exibe o gabarito colorido antes da consequência da rodada."""
+        self.timer_label = None
+        feedback = dict((self.state or {}).get("answer_feedback") or {})
+        correct_index = int(feedback.get("correct_index", q.get("answer_index", -1)))
+        selected_index = feedback.get("selected_index")
+        try:
+            selected_index = int(selected_index) if selected_index is not None else None
+        except (TypeError, ValueError):
+            selected_index = None
+        is_correct = bool(feedback.get("is_correct"))
+
+        header = RoundedBox(
+            orientation="vertical",
+            bg_color=(0.88, 0.96, 0.86, 1) if is_correct else (1.0, 0.88, 0.86, 1),
+            size_hint_y=None,
+            padding=dp(10),
+            spacing=dp(4),
+        )
+        header.add_widget(self.label("Gabarito da pergunta", 16, True, DARK, min_height=28, halign="center"))
+        header.add_widget(self.label(
+            "RESPOSTA CORRETA!" if is_correct else "RESPOSTA INCORRETA",
+            23,
+            True,
+            DARK if is_correct else RED,
+            min_height=38,
+            halign="center",
+        ))
+        self.finalize_card(header)
+        self.question_focus_widget = header
+        self.add(header)
+
+        question_box = self.card(padding=10, spacing=2)
+        question_box.add_widget(self.label(q.get("prompt", ""), 16, False, TEXT, min_height=64))
+        self.finalize_card(question_box)
+        self.add(question_box)
+
+        letters = ["A", "B", "C", "D"]
+        for idx, opt in enumerate(q.get("options") or []):
+            correct = idx == correct_index
+            option_box = RoundedBox(
+                orientation="vertical",
+                bg_color=(0.84, 0.95, 0.84, 1) if correct else (1.0, 0.86, 0.85, 1),
+                size_hint_y=None,
+                padding=dp(10),
+                spacing=dp(3),
+            )
+            marker_text = "✓ CORRETA" if correct else "✗ INCORRETA"
+            if idx == selected_index:
+                marker_text += "  •  SUA RESPOSTA"
+            option_box.add_widget(self.label(
+                f"{letters[idx]}) {marker_text}",
+                14,
+                True,
+                (0.08, 0.42, 0.15, 1) if correct else RED,
+                min_height=26,
+            ))
+            option_box.add_widget(self.label(
+                str(opt),
+                15,
+                False,
+                (0.08, 0.36, 0.14, 1) if correct else (0.60, 0.08, 0.08, 1),
+                min_height=42,
+            ))
+            self.finalize_card(option_box)
+            self.add(option_box)
+
+        action = self.card(padding=10, spacing=5)
+        action.add_widget(self.label(
+            "Confira o gabarito antes de seguir para o resultado da rodada.",
+            13,
+            False,
+            TEXT,
+            min_height=30,
+            halign="center",
+        ))
+        action.add_widget(self.make_button(
+            "Continuar",
+            lambda: self.send({"type": "continue"}),
+            disabled=not my_turn,
+            height=58,
+            primary=True,
+        ))
+        if not my_turn and cp:
+            action.add_widget(self.label(
+                f"Aguardando {cp.get('name')} continuar.",
+                12,
+                False,
+                TEXT,
+                min_height=26,
+                halign="center",
+            ))
+        self.finalize_card(action)
+        self.add(action)
 
     def render_question_area(self, q: dict[str, Any], my_turn: bool) -> None:
         remaining = self.remaining_seconds()

@@ -148,6 +148,47 @@ def wrap_text(text: str, width: int = 60) -> list[str]:
     return lines
 
 
+def wrap_text_pixels(text: str, font: pygame.font.Font, max_width: int) -> list[str]:
+    """Quebra texto usando a largura real renderizada pela fonte.
+
+    O layout antigo estimava a quebra apenas pela quantidade de caracteres.
+    Palavras largas podiam ultrapassar a borda mesmo quando o número de
+    caracteres parecia caber. Esta função mede cada linha em pixels e também
+    divide palavras excepcionalmente longas quando necessário.
+    """
+    max_width = max(20, int(max_width))
+    output: list[str] = []
+    for paragraph in str(text).split("\n"):
+        words = paragraph.split()
+        if not words:
+            output.append("")
+            continue
+        line = ""
+        for word in words:
+            candidate = word if not line else f"{line} {word}"
+            if font.size(candidate)[0] <= max_width:
+                line = candidate
+                continue
+            if line:
+                output.append(line)
+                line = ""
+            if font.size(word)[0] <= max_width:
+                line = word
+                continue
+            chunk = ""
+            for char in word:
+                candidate_chunk = chunk + char
+                if not chunk or font.size(candidate_chunk)[0] <= max_width:
+                    chunk = candidate_chunk
+                else:
+                    output.append(chunk)
+                    chunk = char
+            line = chunk
+        if line:
+            output.append(line)
+    return output or [""]
+
+
 class Button:
     def __init__(
         self,
@@ -192,7 +233,9 @@ class Button:
         pygame.draw.rect(screen, border, self.rect, width=2, border_radius=12)
 
         draw_font = self.font or font
-        lines = str(self.text).split("\n")
+        lines: list[str] = []
+        for paragraph in str(self.text).split("\n"):
+            lines.extend(wrap_text_pixels(paragraph, draw_font, self.rect.w - 18))
         rendered = [draw_font.render(line, True, color) for line in lines]
         line_gap = 2
         total_h = sum(surface.get_height() for surface in rendered) + line_gap * max(0, len(rendered) - 1)
@@ -1668,6 +1711,175 @@ class GreenImpactClient:
             self.draw_text(shown, (x + 8, y + 22), self.font_tiny, TEXT)
         return y + height + 5
 
+    def draw_dynamic_question_card(self, x: int, y: int, width: int, prompt: str, compact: bool = False) -> int:
+        """Desenha a pergunta em um cartão cuja altura acompanha o texto."""
+        font = self.font_tiny
+        line_h = max(17, font.get_linesize())
+        lines = wrap_text_pixels(prompt, font, width - 22)
+        height = max(58, 14 + len(lines) * line_h)
+        rect = pygame.Rect(x, y, width, height)
+        self.draw_card(rect, ANSWER_FILL, SOFT_BORDER, 2, 10)
+        ty = rect.y + 7
+        for line in lines:
+            self.draw_text(line, (rect.x + 11, ty), font, TEXT)
+            ty += line_h
+        return rect.bottom + 6
+
+    def draw_dynamic_answer_options(
+        self,
+        x: int,
+        y: int,
+        width: int,
+        options: list[Any],
+        eliminated: set[int],
+        my_turn: bool,
+        compact: bool = False,
+    ) -> int:
+        """Desenha alternativas completas, aumentando cada botão quando necessário."""
+        letters = ["A", "B", "C", "D"]
+        font = self.font_tiny
+        line_h = max(16, font.get_linesize())
+        gap = 4
+        cursor = y
+        for idx, option in enumerate(options):
+            text = f"{letters[idx]}) {option}"
+            lines = wrap_text_pixels(text, font, width - 20)
+            button_h = max(29, 8 + len(lines) * line_h)
+            self.add_button(
+                pygame.Rect(x, cursor, width, button_h),
+                "\n".join(lines),
+                lambda i=idx: self.fire_and_forget({"type": "answer", "answer_index": i}),
+                enabled=my_turn and idx not in eliminated,
+                fill_color=ANSWER_FILL, hover_color=(234, 244, 226),
+                border_color=SOFT_BORDER, font=font,
+            )
+            cursor += button_h + gap
+        return cursor + 2
+
+    def draw_answer_feedback(
+        self,
+        x: int,
+        y: int,
+        width: int,
+        bottom: int,
+        cp: dict[str, Any] | None,
+        my_turn: bool,
+        compact: bool = False,
+    ) -> None:
+        """Mostra o gabarito antes da tela de consequência da rodada."""
+        if not self.state:
+            return
+        q = dict(self.state.get("current_question") or {})
+        feedback = dict(self.state.get("answer_feedback") or {})
+        if not q or not feedback:
+            return
+
+        correct_index = int(feedback.get("correct_index", q.get("answer_index", -1)))
+        selected_index = feedback.get("selected_index")
+        try:
+            selected_index = int(selected_index) if selected_index is not None else None
+        except (TypeError, ValueError):
+            selected_index = None
+        is_correct = bool(feedback.get("is_correct"))
+
+        available_h = max(260, bottom - y)
+        panel = pygame.Rect(x, y, width, available_h)
+        panel_fill = SUCCESS_FILL if is_correct else ERROR_FILL
+        accent = DARK if is_correct else RED
+        self.draw_card(panel, panel_fill, accent, 3, 14)
+
+        title = "RESPOSTA CORRETA!" if is_correct else "RESPOSTA INCORRETA"
+        self.draw_centered("GABARITO DA PERGUNTA", pygame.Rect(x, y + 7, width, 22), self.font_tiny, accent)
+        self.draw_centered(title, pygame.Rect(x, y + 27, width, 34), self.font if compact else self.font_big, accent)
+        cursor = y + 66
+
+        prompt_font = self.font_tiny if compact else self.font_small
+        prompt_lines = wrap_text_pixels(q.get("prompt", ""), prompt_font, width - 40)
+        prompt_line_h = max(17 if compact else 19, prompt_font.get_linesize())
+        prompt_h = max(46, 14 + len(prompt_lines) * prompt_line_h)
+        prompt_rect = pygame.Rect(x + 10, cursor, width - 20, prompt_h)
+        self.draw_card(prompt_rect, (252, 252, 247), SOFT_BORDER, 1, 9)
+        py = prompt_rect.y + 7
+        for line in prompt_lines:
+            self.draw_text(line, (prompt_rect.x + 10, py), prompt_font, TEXT)
+            py += prompt_line_h
+        cursor = prompt_rect.bottom + 7
+
+        letters = ["A", "B", "C", "D"]
+        options = list(q.get("options") or [])
+        option_font = self.font_tiny if compact else self.font_small
+        option_line_h = max(16 if compact else 18, option_font.get_linesize())
+
+        option_layout: list[tuple[int, list[str], int]] = []
+        total_options_h = 0
+        for idx, option in enumerate(options):
+            lines = wrap_text_pixels(str(option), option_font, width - 40)
+            option_h = max(35 if compact else 40, 26 + len(lines) * option_line_h)
+            option_layout.append((idx, lines, option_h))
+            total_options_h += option_h + 5
+
+        # Reserva espaço para o botão Continuar. Se uma questão excepcionalmente
+        # longa ultrapassar a área, reduzimos o espaçamento vertical sem cortar
+        # o texto das alternativas.
+        continue_h = 40
+        remaining_for_options = max(120, panel.bottom - cursor - continue_h - 20)
+        gap = 5
+        if total_options_h > remaining_for_options:
+            option_line_h = max(16 if compact else 18, option_font.get_linesize())
+            option_layout = []
+            total_options_h = 0
+            for idx, option in enumerate(options):
+                lines = wrap_text_pixels(str(option), option_font, width - 40)
+                option_h = max(32, 24 + len(lines) * option_line_h)
+                option_layout.append((idx, lines, option_h))
+                total_options_h += option_h + 3
+            gap = 3
+
+        for idx, lines, option_h in option_layout:
+            correct = idx == correct_index
+            fill = (216, 244, 218) if correct else (255, 222, 220)
+            border = (42, 135, 62) if correct else (190, 55, 55)
+            color = (25, 105, 45) if correct else (155, 35, 35)
+            opt_rect = pygame.Rect(x + 10, cursor, width - 20, option_h)
+            self.draw_card(opt_rect, fill, border, 2, 9)
+            label = f"{letters[idx]})"
+            if idx == selected_index:
+                label += "  SUA RESPOSTA"
+            if correct:
+                label += "  ✓ CORRETA"
+            else:
+                label += "  ✗ INCORRETA"
+            self.draw_text(label, (opt_rect.x + 10, opt_rect.y + 5), self.font_tiny, color)
+            ty = opt_rect.y + 20
+            for line in lines:
+                self.draw_text(line, (opt_rect.x + 10, ty), option_font, color)
+                ty += option_line_h
+            cursor = opt_rect.bottom + gap
+
+        btn_w = min(260, width - 20)
+        self.add_button(
+            pygame.Rect(x + 10, panel.bottom - 47, btn_w, 38),
+            "Continuar",
+            lambda: self.fire_and_forget({"type": "continue"}),
+            enabled=my_turn,
+            fill_color=(232, 244, 213),
+            hover_color=(218, 238, 201),
+            border_color=DARK,
+            text_color=DARK,
+            font=self.font_button_small,
+        )
+        if not my_turn and cp:
+            wait_x = x + btn_w + 22
+            wait_w = max(80, panel.right - wait_x - 10)
+            wait_lines = wrap_text_pixels(
+                f"Aguardando {cp.get('name')} continuar.", self.font_tiny, wait_w
+            )
+            wait_line_h = max(15, self.font_tiny.get_linesize())
+            wait_y = panel.bottom - 8 - len(wait_lines) * wait_line_h
+            for line in wait_lines:
+                self.draw_text(line, (wait_x, wait_y), self.font_tiny, TEXT)
+                wait_y += wait_line_h
+
     def draw_consequence(self, x: int, y: int, width: int, bottom: int, cp: dict[str, Any] | None, my_turn: bool, compact: bool = False) -> None:
         result = dict((self.state or {}).get("turn_result") or {})
         kind = str(result.get("kind") or "result")
@@ -1715,12 +1927,20 @@ class GreenImpactClient:
         )
 
     def draw_stop_section(self, x: int, y: int, width: int, my_turn: bool, compact: bool = False) -> int:
-        height = 40 if compact else 44
+        btn_w = 190 if width > 520 else 162
+        text_width = max(120, width - btn_w - 30)
+        description_lines = wrap_text_pixels(
+            "Volta ao início e perde metade do saldo", self.font_tiny, text_width
+        )
+        line_h = max(16, self.font_tiny.get_linesize())
+        height = max(40 if compact else 44, 23 + len(description_lines) * line_h + 5)
         rect = pygame.Rect(x, y, width, height)
         self.draw_card(rect, WARNING_FILL, RED, 2, 10)
         self.draw_text("PARAR", (x + 10, y + 3), self.font_tiny, RED)
-        self.draw_text("Volta ao início e perde metade do saldo", (x + 10, y + 20), self.font_tiny, TEXT)
-        btn_w = 190 if width > 520 else 162
+        ty = y + 20
+        for line in description_lines:
+            self.draw_text(line, (x + 10, ty), self.font_tiny, TEXT)
+            ty += line_h
         self.add_button(
             pygame.Rect(rect.right - btn_w - 6, rect.y + 5, btn_w, rect.h - 10),
             "Parar", lambda: self.fire_and_forget({"type": "stop"}),
@@ -1734,18 +1954,24 @@ class GreenImpactClient:
         used_helps = set((cp or {}).get("used_helps") or [])
         help_used = bool((self.state or {}).get("help_used_this_turn"))
         globally_disabled = (not my_turn) or help_used or saldo < HELP_COST
-        header_h = 27 if compact else 34
         btn_h = 32 if compact else 46
         gap = 6 if compact else 8
-        section_h = header_h + btn_h * 2 + gap * 3
-        rect = pygame.Rect(x, y, width, section_h)
-        self.draw_card(rect, HELP_CARD, (165, 120, 20), 2, 11)
         status = f"AJUDAS — custo {HELP_COST} cada; cada carta só pode ser usada 1x"
         if help_used:
             status += " | já usou ajuda nesta rodada"
         elif saldo < HELP_COST:
             status += " | saldo insuficiente"
-        self.draw_text(status, (x + 10, y + 6), self.font_tiny if compact else self.font_button_small, RED if globally_disabled else DARK)
+        status_font = self.font_tiny if compact else self.font_button_small
+        status_lines = wrap_text_pixels(status, status_font, width - 20)
+        status_line_h = max(16, status_font.get_linesize())
+        header_h = max(27 if compact else 34, 10 + len(status_lines) * status_line_h)
+        section_h = header_h + btn_h * 2 + gap * 3
+        rect = pygame.Rect(x, y, width, section_h)
+        self.draw_card(rect, HELP_CARD, (165, 120, 20), 2, 11)
+        status_y = y + 5
+        for line in status_lines:
+            self.draw_text(line, (x + 10, status_y), status_font, RED if globally_disabled else DARK)
+            status_y += status_line_h
         col_gap = 7
         btn_w = (width - 20 - col_gap) // 2
         labels = [
@@ -1964,6 +2190,10 @@ class GreenImpactClient:
         phase = self.state.get("turn_phase")
         y = self.draw_turn_banner(x, y, content_w, cp, my_turn, compact=False)
 
+        if phase == "answer_feedback" and q and self.state.get("answer_feedback"):
+            self.draw_answer_feedback(x, y, content_w, right.bottom - 10, cp, my_turn, compact=False)
+            return
+
         if phase in {"turn_result", "luck_result"}:
             self.draw_consequence(x, y, content_w, right.bottom - 10, cp, my_turn, compact=False)
             return
@@ -1982,24 +2212,10 @@ class GreenImpactClient:
             self.draw_text(f"Pergunta: {diff_label}", (x + 210, y + 8), self.font_small, DARK)
             y += 38
 
-            question_rect = pygame.Rect(x, y, content_w, 58)
-            self.draw_card(question_rect, ANSWER_FILL, SOFT_BORDER, 2, 10)
-            self.draw_wrapped(q.get("prompt", ""), x + 12, y + 7, 86, self.font_tiny, TEXT, 17)
-            y += 64
+            y = self.draw_dynamic_question_card(x, y, content_w, q.get("prompt", ""), compact=False)
             eliminated = set(q.get("eliminated_options") or [])
-            letters = ["A", "B", "C", "D"]
             options = list(q.get("options") or [])
-            option_h = 27
-            for idx, option in enumerate(options):
-                self.add_button(
-                    pygame.Rect(x, y + idx * 31, content_w, option_h),
-                    f"{letters[idx]}) {option}"[:96],
-                    lambda i=idx: self.fire_and_forget({"type": "answer", "answer_index": i}),
-                    enabled=my_turn and idx not in eliminated,
-                    fill_color=ANSWER_FILL, hover_color=(234, 244, 226),
-                    border_color=SOFT_BORDER, font=self.font_tiny,
-                )
-            y += len(options) * 31 + 2
+            y = self.draw_dynamic_answer_options(x, y, content_w, options, eliminated, my_turn, compact=False)
             y = self.draw_balance_card(x, y, content_w, cp, compact=True)
             y = self.draw_help_section(x, y, content_w, cp, my_turn, compact=True)
             y = self.draw_mini_event_log(x, y, content_w, compact=True)
@@ -2061,6 +2277,8 @@ class GreenImpactClient:
         rede mas nunca renderizada. Agora este painel é chamado pelo ``draw``
         depois de qualquer HUD de partida, então independe do modo de tabuleiro.
         """
+        if (self.state or {}).get("turn_phase") != "question":
+            return
         tip = self.active_expert_tip_for(question_id)
         if not tip:
             return
@@ -2159,6 +2377,10 @@ class GreenImpactClient:
         phase = self.state.get("turn_phase")
         y = self.draw_turn_banner(x, y, content_w, cp, my_turn, compact=True)
 
+        if phase == "answer_feedback" and q and self.state.get("answer_feedback"):
+            self.draw_answer_feedback(x, y, content_w, right.bottom - 8, cp, my_turn, compact=True)
+            return
+
         if phase in {"turn_result", "luck_result"}:
             self.draw_consequence(x, y, content_w, right.bottom - 8, cp, my_turn, compact=True)
             return
@@ -2176,30 +2398,12 @@ class GreenImpactClient:
             self.draw_text(f"Tempo: {remaining}s", (x, y), self.font, RED if remaining <= 10 else DARK)
             self.draw_text(diff_label, (x + 170, y + 3), self.font_tiny, DARK)
             y += 29
-            # A altura da pergunta passa a acompanhar a quantidade real de
-            # linhas. O cartão fixo de 58 px cortava questões mais longas.
-            question_lines = wrap_text(q.get("prompt", ""), 53)
-            question_h = max(58, 14 + len(question_lines) * 17)
-            question_rect = pygame.Rect(x, y, content_w, question_h)
-            self.draw_card(question_rect, ANSWER_FILL, SOFT_BORDER, 2, 10)
-            line_y = y + 7
-            for line in question_lines:
-                self.draw_text(line, (x + 10, line_y), self.font_tiny, TEXT)
-                line_y += 17
-            y += question_h + 6
+            # Pergunta e alternativas crescem conforme o texto. A quebra usa
+            # a largura real da fonte para que nenhuma linha atravesse a borda.
+            y = self.draw_dynamic_question_card(x, y, content_w, q.get("prompt", ""), compact=True)
             eliminated = set(q.get("eliminated_options") or [])
-            letters = ["A", "B", "C", "D"]
             options = list(q.get("options") or [])
-            for idx, option in enumerate(options):
-                self.add_button(
-                    pygame.Rect(x, y + idx * 31, content_w, 27),
-                    f"{letters[idx]}) {option}"[:70],
-                    lambda i=idx: self.fire_and_forget({"type": "answer", "answer_index": i}),
-                    enabled=my_turn and idx not in eliminated,
-                    fill_color=ANSWER_FILL, hover_color=(234, 244, 226),
-                    border_color=SOFT_BORDER, font=self.font_tiny,
-                )
-            y += len(options) * 31 + 2
+            y = self.draw_dynamic_answer_options(x, y, content_w, options, eliminated, my_turn, compact=True)
             y = self.draw_balance_card(x, y, content_w, cp, compact=True)
             y = self.draw_help_section(x, y, content_w, cp, my_turn, compact=True)
             y = self.draw_mini_event_log(x, y, content_w, compact=True)

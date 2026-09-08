@@ -77,7 +77,8 @@ class Room:
     current_player_id: str | None = None
     deadline_ts: float | None = None
     # turn_phase:
-    # idle, awaiting_roll, awaiting_question, question, luck_result
+    # idle, awaiting_roll, awaiting_question, question, answer_feedback,
+    # luck_result, turn_result
     turn_phase: str = "idle"
     pending_question_difficulty: str | None = None
     help_used_this_turn: bool = False
@@ -92,6 +93,20 @@ class Room:
     # Posição em que o jogador iniciou o turno, usada para devolver o peão
     # à casa de origem quando a pergunta é respondida incorretamente.
     turn_start_position: int | None = None
+    # Feedback mostrado logo após uma resposta. Enquanto este campo estiver
+    # preenchido, a questão permanece visível e o gabarito pode ser revelado
+    # com segurança aos clientes.
+    answer_feedback: dict[str, Any] | None = None
+    # Quando a pergunta final foi respondida corretamente, a consequência é
+    # mostrada antes do ranking. Este campo guarda o motivo do encerramento até
+    # o jogador confirmar a tela de consequência.
+    pending_end_reason: str | None = None
+    # IDs já apresentados na partida, separados por nível. O baralho de um
+    # nível só é reiniciado depois que todas as questões daquele nível forem
+    # utilizadas.
+    used_question_ids: dict[str, list[str]] = field(
+        default_factory=lambda: {"easy": [], "medium": [], "hard": []}
+    )
 
     def ordered_players(self) -> list[Player]:
         return list(self.players.values())
@@ -106,7 +121,9 @@ class Room:
             "status": self.status,
             "players": [p.public() for p in self.ordered_players()],
             "current_player_id": self.current_player_id,
-            "current_question": self.current_question.public(reveal_answer) if self.current_question else None,
+            "current_question": self.current_question.public(
+                reveal_answer or self.answer_feedback is not None
+            ) if self.current_question else None,
             "deadline_ts": self.deadline_ts,
             "turn_phase": self.turn_phase,
             "pending_question_difficulty": self.pending_question_difficulty,
@@ -118,6 +135,7 @@ class Room:
             "last_roll": self.last_roll,
             "special_event": self.special_event,
             "turn_start_position": self.turn_start_position,
+            "answer_feedback": self.answer_feedback,
             "max_players": MAX_PLAYERS,
             "is_full": len(self.players) >= MAX_PLAYERS,
         }
