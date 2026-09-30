@@ -565,7 +565,7 @@ class GreenImpactClient:
         for p in self.state.get("players", []):
             color = p.get("color") or "?"
             rgb = PLAYER_RGB.get(color, (100, 100, 100))
-            prefix = "▶ " if p.get("id") == current_id else "  "
+            prefix = "> " if p.get("id") == current_id else "  "
             status = ""
             if p.get("eliminated"):
                 status = " eliminado"
@@ -607,7 +607,7 @@ class GreenImpactClient:
             py = y + row * row_h
             color = p.get("color") or "?"
             rgb = PLAYER_RGB.get(color, (100, 100, 100))
-            prefix = "▶ " if p.get("id") == current_id else "  "
+            prefix = "> " if p.get("id") == current_id else "  "
             status = ""
             if p.get("eliminated"):
                 status = " elim."

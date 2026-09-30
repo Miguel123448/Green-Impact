@@ -329,7 +329,13 @@ async def after_landing(room: Room, player: Player, *, movement_source: str = "o
         message, delta = random.choice(LUCK_EVENTS)
         old = player.credits
         player.credits = max(0, player.credits + delta)
-        room.special_event = f"{message} ({old} → {player.credits} créditos)"
+        # Mostra a operação completa para evitar ambiguidade no mobile:
+        # ganho: 3 + 4 = 7; perda: 3 - 4 = 0.
+        if delta >= 0:
+            operation = f"{old} + {delta} = {player.credits}"
+        else:
+            operation = f"{old} - {abs(delta)} = {player.credits}"
+        room.special_event = f"{message} ({operation} créditos)"
         room.turn_phase = "luck_result"
         await broadcast(room, f"{player.name} caiu em uma casa de sorte/revés. {room.special_event}")
         return
@@ -496,7 +502,7 @@ async def apply_wrong_answer(
         f"{track_label(landed_position, room.game_mode)} para "
         f"{track_label(origin_position, room.game_mode)}, pagou {returned_houses} "
         f"crédito{'s' if returned_houses != 1 else ''} de carbono "
-        f"({old_credits} → {player.credits}) e ficará uma rodada sem jogar."
+        f"({old_credits} -> {player.credits}) e ficará uma rodada sem jogar."
     )
 
     room.deadline_ts = None
@@ -757,7 +763,7 @@ async def handle_stop(ws: Any) -> None:
     player.position = 0
     event = (
         f"{player.name} decidiu parar. Voltou de {track_label(old_position, room.game_mode)} para o Início "
-        f"e perdeu metade do saldo: {old_credits} → {player.credits} créditos. "
+        f"e perdeu metade do saldo: {old_credits} -> {player.credits} créditos. "
         "Ele não participa das próximas rodadas."
     )
     room.current_question = None

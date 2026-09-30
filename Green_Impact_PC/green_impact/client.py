@@ -1844,11 +1844,8 @@ class GreenImpactClient:
             self.draw_card(opt_rect, fill, border, 2, 9)
             label = f"{letters[idx]})"
             if idx == selected_index:
-                label += "  SUA RESPOSTA"
-            if correct:
-                label += "  ✓ CORRETA"
-            else:
-                label += "  ✗ INCORRETA"
+                label += "  SUA RESPOSTA — "
+            label += "CORRETA" if correct else "INCORRETA"
             self.draw_text(label, (opt_rect.x + 10, opt_rect.y + 5), self.font_tiny, color)
             ty = opt_rect.y + 20
             for line in lines:

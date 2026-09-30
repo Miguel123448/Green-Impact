@@ -1431,7 +1431,7 @@ class GreenImpactAndroidApp(App):
                 status = " | perde próxima rodada"
             elif not p.get("connected", True):
                 status = " | offline"
-            prefix = "▶ " if p.get("id") == current_id else "• "
+            prefix = "> " if p.get("id") == current_id else "  "
             color = COLOR_LABELS.get(p.get("color"), "Sem cor")
             txt = f"{prefix}[b]{p.get('name')}[/b] | {color} | casa {pos_label(self.state, p.get('position'))} | {p.get('credits')} créditos{status}"
             fs = 16 if p.get('id') == current_id else (13 if compact else 15)
@@ -1548,7 +1548,7 @@ class GreenImpactAndroidApp(App):
                 padding=dp(10),
                 spacing=dp(3),
             )
-            marker_text = "✓ CORRETA" if correct else "✗ INCORRETA"
+            marker_text = "CORRETA" if correct else "INCORRETA"
             if idx == selected_index:
                 marker_text += "  •  SUA RESPOSTA"
             option_box.add_widget(self.label(
