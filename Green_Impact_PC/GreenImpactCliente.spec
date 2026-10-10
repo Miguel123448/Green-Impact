@@ -10,7 +10,7 @@ a = Analysis(
     ['client_entry.py'],
     pathex=[],
     binaries=[],
-    datas=[('assets', 'assets'), ('data', 'data')],
+    datas=[('assets', 'assets'), ('legacy_assets', 'legacy_assets'), ('data', 'data')],
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

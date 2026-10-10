@@ -4,7 +4,7 @@ title = Green Impact
 package.name = greenimpact
 package.domain = org.gamefication
 
-version = 1.0
+version = 1.0.1
 
 icon.filename = assets/app_icon.png
 

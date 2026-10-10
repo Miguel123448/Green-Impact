@@ -1,0 +1,3 @@
+Perguntas atualizadas a partir de PERGUNTAS CORRIGIDAS v2.docx
+Total: 120 perguntas (40 fáceis, 40 médias, 40 difíceis).
+Arquivos alterados: data/questions_easy.json, data/questions_medium.json, data/questions_hard.json.

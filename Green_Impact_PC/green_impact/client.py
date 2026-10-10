@@ -365,12 +365,16 @@ class GreenImpactClient:
 
         self.board_rect = pygame.Rect(20, 20, 455, 682)
         self.board_new_rect = pygame.Rect(16, 150, 500, 354)
-        # No jogo com dado, o tabuleiro novo é horizontal. Por isso há uma
-        # versão maior e mais larga usada durante a partida.
+        # No jogo com dado, o tabuleiro novo é horizontal. Todos os tamanhos
+        # de exibição são gerados em memória a partir de um único arquivo-fonte.
         self.board_new_game_rect = pygame.Rect(16, 88, 720, 509)
-        self.board_img = self.load_image(ASSET_DIR / "board.jpg", self.board_rect.size)
-        self.board_new_img = self.load_image(ASSET_DIR / "board_new.jpg", self.board_new_rect.size)
-        self.board_new_game_img = self.load_image(ASSET_DIR / "board_new.jpg", self.board_new_game_rect.size)
+        self.board_img = self.load_image_downscaled_to_size(
+            BASE_DIR / "legacy_assets" / "board_classic.jpg", self.board_rect.size
+        )
+        self.board_new_source_img = self.load_image_exact(ASSET_DIR / "board_new.jpg")
+        self.board_new_img = self.downscale_image(self.board_new_source_img, self.board_new_rect.size)
+        self.board_new_home_img = self.downscale_image(self.board_new_source_img, (693, 490))
+        self.board_new_game_img = self.downscale_image(self.board_new_source_img, self.board_new_game_rect.size)
         self.logo_img = self.load_image(ASSET_DIR / "logo.png", (320, 160), keep_alpha=True)
         self.ufpe_banner_img = self.load_image(ASSET_DIR / "ufpe_banner.jpg", (300, 95))
         self.gamification_banner_img = self.load_image(ASSET_DIR / "gamification_banner.jpg", (300, 205))
@@ -700,12 +704,49 @@ class GreenImpactClient:
         )
 
     def load_image(self, path: Path, size: tuple[int, int], keep_alpha: bool = False) -> pygame.Surface | None:
+        """Carrega e reduz uma imagem para caber no tamanho pedido, sem ampliá-la."""
         try:
             img = pygame.image.load(str(path))
             img = img.convert_alpha() if keep_alpha else img.convert()
-            return pygame.transform.smoothscale(img, size)
+            return self.downscale_image(img, size)
         except Exception:
             return None
+
+    def load_image_exact(self, path: Path, keep_alpha: bool = False) -> pygame.Surface | None:
+        """Carrega a imagem-fonte em sua resolução original, sem redimensioná-la."""
+        try:
+            img = pygame.image.load(str(path))
+            return img.convert_alpha() if keep_alpha else img.convert()
+        except Exception:
+            return None
+
+    def load_image_downscaled_to_size(
+        self, path: Path, size: tuple[int, int], keep_alpha: bool = False
+    ) -> pygame.Surface | None:
+        """Reduz para dimensões exatas se ambas forem menores; nunca amplia."""
+        try:
+            img = pygame.image.load(str(path))
+            img = img.convert_alpha() if keep_alpha else img.convert()
+            source_w, source_h = img.get_size()
+            if size[0] <= source_w and size[1] <= source_h:
+                return pygame.transform.smoothscale(img, size)
+            return self.downscale_image(img, size)
+        except Exception:
+            return None
+
+    @staticmethod
+    def downscale_image(img: pygame.Surface | None, max_size: tuple[int, int]) -> pygame.Surface | None:
+        """Reduz proporcionalmente para caber em max_size; nunca faz upscale."""
+        if img is None:
+            return None
+        original_w, original_h = img.get_size()
+        if original_w <= 0 or original_h <= 0:
+            return img
+        scale = min(max_size[0] / original_w, max_size[1] / original_h, 1.0)
+        target_size = (max(1, int(original_w * scale)), max(1, int(original_h * scale)))
+        if target_size == (original_w, original_h):
+            return img
+        return pygame.transform.smoothscale(img, target_size)
 
     async def connect(self) -> None:
         await self.connect_to(self.server_url, self.name, self.join_room)
@@ -1163,12 +1204,14 @@ class GreenImpactClient:
         header_rect = pygame.Rect(30, 24, 1220, 112)
         board_rect = pygame.Rect(30, 166, 770, 490)
         panel = pygame.Rect(840, 182, 384, 482)
-        if self.board_new_img:
-            board_img = pygame.transform.smoothscale(self.board_new_img, board_rect.size)
-            self.screen.blit(board_img, board_rect)
-        elif self.board_img:
-            board_img = pygame.transform.smoothscale(self.board_img, board_rect.size)
-            self.screen.blit(board_img, board_rect)
+        if self.board_new_home_img:
+            # A prévia é criada em memória a partir do arquivo-fonte e nunca
+            # ultrapassa a resolução original; é centralizada sem deformação.
+            image_rect = self.board_new_home_img.get_rect(center=board_rect.center)
+            self.screen.blit(self.board_new_home_img, image_rect)
+        elif self.board_new_img:
+            image_rect = self.board_new_img.get_rect(center=board_rect.center)
+            self.screen.blit(self.board_new_img, image_rect)
         else:
             self.draw_round_rect(board_rect, (205, 220, 188), (160, 180, 145), radius=26)
         self.draw_round_rect(panel, (248, 246, 235), (194, 171, 111), radius=26)

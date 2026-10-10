@@ -23,7 +23,7 @@ if errorlevel 1 (
 
 echo.
 echo Gerando GreenImpactCliente.exe...
-py -m PyInstaller --onefile --name GreenImpactCliente --icon "assets\app_icon.ico" --add-data "assets;assets" --add-data "data;data" --collect-submodules websockets --collect-submodules pygame --hidden-import green_impact.server --noconsole client_entry.py
+py -m PyInstaller --onefile --name GreenImpactCliente --icon "assets\app_icon.ico" --add-data "assets;assets" --add-data "legacy_assets;legacy_assets" --add-data "data;data" --collect-submodules websockets --collect-submodules pygame --hidden-import green_impact.server --noconsole client_entry.py
 
 if errorlevel 1 (
     echo Erro ao gerar o cliente.

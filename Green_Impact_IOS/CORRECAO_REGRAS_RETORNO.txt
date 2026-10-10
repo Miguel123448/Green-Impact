@@ -1,0 +1,9 @@
+CORREÇÃO - VOLTAR DAS REGRAS/COMO JOGAR
+
+- Corrigido o comportamento do botão "Como jogar"/"Regras".
+- Agora a tela de regras guarda a origem do clique e o botão "Voltar" retorna para a tela anterior.
+- Se o jogador abrir as regras no lobby, volta para o lobby.
+- Se abrir durante a partida, volta para a partida sem desconectar da sala e sem apagar o estado.
+- Se abrir no fim de jogo, volta para a tela de fim de jogo.
+- Se abrir no menu de conexão ou multijogador local, volta para a respectiva tela.
+- Na versão PC, também foi corrigido o ESC dentro da tela de regras para retornar à tela anterior.
