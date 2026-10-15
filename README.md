@@ -6,4 +6,4 @@ Green Impact é um jogo educativo sobre sustentabilidade e Objetivos de Desenvol
 
 - `pc/` - versão para Windows/PC
 - `android/` - versão Android com Kivy/Buildozer
-- `macos-ios/` - versão preparada para macOS/iOS (em desenvolvimento)
+- `macos-ios/` - versão preparada para macOS/iOS (não compilado e testado)
